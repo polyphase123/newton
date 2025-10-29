@@ -1,0 +1,1211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>15-Bus Interactive Power System Simulator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'primary': '#10b981', /* Emerald Green */
+                        'secondary': '#f97316', /* Orange */
+                        'text-dark': '#1f2937',
+                        'bg-light': '#ffffff',
+                        'bus-good': '#10b981',
+                        'bus-low': '#fbbf24',
+                        'bus-crit': '#ef4444',
+                        'bus-fault': '#dc2626',
+                        'bus-default': '#6b7280', /* Gray for unanalyzed state */
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: #f3f4f6; /* Light background */
+            color: #1f2937; /* Dark text */
+            font-family: 'Inter', sans-serif;
+            min-height: 100vh;
+        }
+        /* Tables */
+        .bus-result-table th, .bus-result-table td {
+            padding: 8px;
+            text-align: left;
+            border-bottom: 1px solid #d1d5db;
+            font-size: 0.875rem;
+        }
+        .bus-result-table th {
+            background-color: #e5e7eb;
+            color: #4b5563;
+            font-weight: 600;
+        }
+        .short-circuit-table th, .short-circuit-table td {
+            padding: 8px;
+            text-align: left;
+            border-bottom: 1px solid #d1d5db;
+            font-size: 0.875rem;
+        }
+        .short-circuit-table td:nth-child(2) {
+            font-weight: 700;
+            color: #f97316; /* Secondary color for results */
+        }
+        /* Configuration Inputs */
+        .config-input {
+            width: 100%; /* Default width changed to 100% for better layout in grid */
+            padding: 2px 4px;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+            text-align: right;
+            font-size: 0.75rem;
+            color: #1f2937;
+        }
+        .config-list {
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        /* Adjusted grid for line configuration to fit new dropdowns and inputs */
+        .line-item {
+            display: grid;
+            grid-template-columns: 1.2fr 0.5fr 0.5fr 0.7fr 0.7fr 0.3fr;
+            align-items: center;
+            gap: 4px;
+            padding: 8px 0;
+            border-bottom: 1px solid #e5e7eb;
+            font-size: 0.75rem; /* Reduced font size to fit more elements */
+        }
+        .line-item > span {
+             white-space: nowrap;
+             overflow: hidden;
+             text-overflow: ellipsis;
+        }
+        /* Style for the new select dropdown */
+        .line-select {
+            padding: 2px;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            color: #1f2937;
+            background-color: white;
+            width: 100%;
+        }
+
+        /* SVG Styling */
+        #networkSVG {
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            background-color: #ffffff;
+            width: 100%;
+            height: 400px;
+        }
+        /* Small input fix in table */
+        .bus-result-table .config-input {
+            width: 70px; /* Make inputs in the table smaller */
+            padding: 1px 3px;
+        }
+        /* Iterative Table Styling */
+        .iterative-table th, .iterative-table td {
+            padding: 6px;
+            font-size: 0.75rem;
+            border: 1px solid #e5e7eb;
+            text-align: center;
+        }
+        .iterative-table th {
+            background-color: #f3f4f6;
+        }
+    </style>
+</head>
+<body class="p-4 sm:p-8">
+
+    <div id="app" class="max-w-6xl mx-auto">
+        <h1 class="text-3xl font-extrabold text-text-dark mb-6 border-b-2 border-primary pb-2 text-center flex items-center justify-center">
+            <svg class="w-8 h-8 mr-2 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+            15-Bus Interactive Power System Simulator
+        </h1>
+
+        <!-- System Visualization and Configuration -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+
+            <!-- Network Topology Diagram (SVG) -->
+            <div class="lg:col-span-2 bg-white p-5 rounded-lg shadow-xl">
+                <h2 class="text-xl font-semibold text-text-dark mb-4">Network Topology & Voltage Status </h2>
+                <div id="svgContainer">
+                     <svg id="networkSVG"></svg>
+                </div>
+                <p id="faultBusTip" class="mt-4 text-center text-sm text-gray-500">Click a bus node in the diagram to select the fault location. Current Fault Bus: <span id="currentFaultBus" class="font-bold text-red-600">10</span></p>
+            </div>
+
+            <!-- Line Configuration -->
+            <div class="bg-white p-5 rounded-lg shadow-xl">
+                <h2 class="text-xl font-semibold text-text-dark mb-4 border-b border-gray-300 pb-2">Wire & Impedance Configuration (32 Lines)</h2>
+                <div class="text-xs text-gray-500 grid grid-cols-6 gap-2 font-bold mb-1 px-1">
+                    <span>Type</span>
+                    <span>From</span>
+                    <span>To</span>
+                    <span class="text-right">R (p.u.)</span>
+                    <span class="text-right">X (p.u.)</span>
+                    <span>On/Off</span>
+                </div>
+                <div id="lineConfiguration" class="config-list">
+                    <!-- Line toggles and R/X inputs will be inserted here -->
+                </div>
+                <button onclick="runLoadFlow()" class="mt-4 w-full py-2 px-4 bg-primary text-white font-bold rounded-md hover:bg-teal-700 transition duration-300 shadow-md">
+                    Apply Changes & Run LF
+                </button>
+            </div>
+        </div>
+
+        <!-- Controls Panel (Load/Gen Editing) -->
+        <div class="bg-white p-5 rounded-lg shadow-xl mb-6 grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="md:col-span-2">
+                <h2 class="text-xl font-semibold text-text-dark mb-4 border-b border-gray-300 pb-2">Bus Parameter Editing</h2>
+                <div id="busParameterEditing" class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                    <!-- Dynamic editing inputs inserted here -->
+                </div>
+            </div>
+            <div class="md:col-span-1 border-l border-gray-300 pl-4">
+                <h2 class="text-xl font-semibold text-text-dark mb-4 border-b border-gray-300 pb-2">Analysis Tools</h2>
+                <div class="space-y-2">
+                    <select id="loadFlowMethod" class="w-full p-2 rounded-md bg-gray-100 border border-gray-300 text-text-dark focus:ring-primary focus:border-primary">
+                        <option value="NR">Newton-Raphson (NR)</option>
+                        <option value="GS">Gauss-Seidel (GS)</option>
+                    </select>
+                    <div class="flex items-center space-x-2">
+                        <select id="faultType" class="flex-1 p-2 rounded-md bg-gray-100 border border-gray-300 text-text-dark focus:ring-secondary focus:border-secondary">
+                            <option value="LLL">Three-Phase (L-L-L) Fault</option>
+                            <option value="SLG">Single-Line-to-Ground (SLG) Fault</option>
+                            <option value="LL">Line-to-Line (L-L) Fault</option>
+                            <option value="LLG">Double-Line-to-Ground (L-L-G) Fault</option>
+                        </select>
+                        <input type="number" id="faultBus" min="1" max="15" value="10" placeholder="Bus" class="w-16 p-2 rounded-md bg-gray-100 border border-gray-300 text-text-dark text-center" onchange="selectFaultBus(parseInt(this.value))">
+                    </div>
+                    <button onclick="runShortCircuit()" class="w-full py-2 px-4 bg-secondary text-white font-bold rounded-md hover:bg-orange-600 transition duration-300 shadow-md">
+                        Run Short Circuit Analysis
+                    </button>
+                </div>
+            </div>
+        </div>
+
+
+        <!-- Results Display Tabs -->
+        <div class="bg-white p-5 rounded-lg shadow-md">
+            <div class="flex border-b border-gray-300">
+                <button id="tabLF" onclick="showResults('loadFlow')" class="px-4 py-2 text-lg font-semibold border-b-2 border-primary text-primary transition duration-300">
+                    Summary Load Flow
+                </button>
+                <button id="tabLFIterative" onclick="showResults('loadFlowIterative')" class="px-4 py-2 text-lg font-semibold text-gray-500 hover:text-text-dark transition duration-300">
+                    Iterative Load Flow
+                </button>
+                <button id="tabSC" onclick="showResults('shortCircuit')" class="px-4 py-2 text-lg font-semibold text-gray-500 hover:text-text-dark transition duration-300">
+                    Short Circuit Results
+                </button>
+            </div>
+            
+            <!-- Load Flow Summary -->
+            <div id="loadFlowResults" class="mt-4 overflow-x-auto h-[450px]">
+                <!-- Dedicated message area -->
+                <div id="lfMessage" class="text-gray-500 text-center py-10">
+                    Run the Load Flow Analysis to view voltage magnitudes and angles across the system.
+                    <p class="mt-4 text-xs text-gray-400">P Load/Gen and V Setpoint in the table below are editable for buses other than the Slack bus (Bus 1).</p>
+                </div>
+                <table id="lfTable" class="min-w-full bus-result-table hidden"></table>
+            </div>
+
+            <!-- Load Flow Iterative -->
+            <div id="loadFlowIterativeResults" class="mt-4 overflow-x-auto h-[450px] hidden">
+                 <div id="lfIterativeMessage" class="text-gray-500 text-center py-10">
+                    The step-by-step convergence data will appear here after running the Load Flow Analysis.
+                </div>
+            </div>
+
+            <!-- Short Circuit Results -->
+            <div id="shortCircuitResults" class="mt-4 hidden h-[450px]">
+                <p class="text-gray-500 text-center py-10">Run the Short Circuit Analysis after a Load Flow to view fault current and MVA.</p>
+                <table class="min-w-full text-sm short-circuit-table">
+                    <thead>
+                        <tr>
+                            <th class="w-1/2">Parameter</th>
+                            <th class="w-1/2">Value</th>
+                        </tr>
+                    </thead>
+                    <tbody id="scBody">
+                        <!-- SC Results will be inserted here -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // Global Constants
+        const BASE_MVA = 100.0;
+        const BASE_KV_LINE = 13.8;
+        const NUM_BUSES = 15;
+        const NUM_LINES = 32;
+
+        // ACSR data derived from PDF (R_DC / km) + assumed X/R ratio for X_pu
+        const ACSR_TYPES = [
+            // Standard ASTM/AWG/MCM Sizes (from Page 1, 2, 4)
+            { name: "TURKEY (6 AWG)", R_DC: 2.1499, X_R_ratio: 3.5, code: "TURKEY" },
+            { name: "THRUSH (5 AWG)", R_DC: 1.6987, X_R_ratio: 4.0, code: "THRUSH" },
+            { name: "SWAN (4 AWG)", R_DC: 1.3501, X_R_ratio: 4.5, code: "SWAN" },
+            { name: "SWALLOW (3 AWG)", R_DC: 1.0712, X_R_ratio: 5.0, code: "SWALLOW" },
+            { name: "SPARROW (2 AWG)", R_DC: 0.8512, X_R_ratio: 5.5, code: "SPARROW" },
+            { name: "ROBIN (1 AWG)", R_DC: 0.6742, X_R_ratio: 7, code: "ROBIN" },
+            { name: "RAVEN (1/0 AWG)", R_DC: 0.5343, X_R_ratio: 7.5, code: "RAVEN" },
+            { name: "QUAIL (2/0 AWG)", R_DC: 0.4247, X_R_ratio: 8, code: "QUAIL" },
+            { name: "PIGEON (3/0 AWG)", R_DC: 0.3359, X_R_ratio: 9, code: "PIGEON" },
+            { name: "PENGUIN (4/0 AWG)", R_DC: 0.2667, X_R_ratio: 10, code: "PENGUIN" },
+            { name: "OWL (266.8 MCM)", R_DC: 0.2112, X_R_ratio: 11, code: "OWL" },
+            { name: "MERLIN (336.4 MCM)", R_DC: 0.1688, X_R_ratio: 12, code: "MERLIN" },
+            { name: "LINNET (336.4 MCM)", R_DC: 0.1693, X_R_ratio: 12, code: "LINNET" },
+            { name: "CHICKADEE (397.7 MCM)", R_DC: 0.1430, X_R_ratio: 13, code: "CHICKADEE" },
+            { name: "PELICAN (477 MCM)", R_DC: 0.1186, X_R_ratio: 14, code: "PELICAN" },
+            { name: "OSPREY (556.5 MCM)", R_DC: 0.1017, X_R_ratio: 15, code: "OSPREY" },
+            { name: "PEACOCK (605 MCM)", R_DC: 0.0943, X_R_ratio: 15, code: "PEACOCK" },
+            { name: "KINGBIRD (636 MCM)", R_DC: 0.0890, X_R_ratio: 16, code: "KINGBIRD" },
+            { name: "FLAMINGO (666.6 MCM)", R_DC: 0.0856, X_R_ratio: 16, code: "FLAMINGO" },
+            { name: "STILT (715.5 MCM)", R_DC: 0.0795, X_R_ratio: 17, code: "STILT" },
+            { name: "TERN (795 MCM)", R_DC: 0.0715, X_R_ratio: 18, code: "TERN" },
+            { name: "CRANE (874.5 MCM)", R_DC: 0.0649, X_R_ratio: 19, code: "CRANE" },
+            { name: "CARDINAL (954 MCM)", R_DC: 0.0596, X_R_ratio: 20, code: "CARDINAL" },
+            { name: "LAPWING (1590 MCM)", R_DC: 0.0359, X_R_ratio: 24, code: "LAPWING" },
+            
+            // High Strength Sizes (from Page 4)
+            { name: "GROUSE (80 MCM HS)", R_DC: 0.7089, X_R_ratio: 6.5, code: "GROUSE" },
+            { name: "PETREL (101.8 MCM HS)", R_DC: 0.5595, X_R_ratio: 7.0, code: "PETREL" },
+            { name: "LEGHORN (134.6 MCM HS)", R_DC: 0.4234, X_R_ratio: 8.5, code: "LEGHORN" },
+            { name: "GUINEA (159 MCM HS)", R_DC: 0.3593, X_R_ratio: 9.0, code: "GUINEA" },
+            { name: "COCHIN (211.3 MCM HS)", R_DC: 0.2698, X_R_ratio: 10, code: "COCHIN" },
+
+            // British Sizes (from Page 5, 6)
+            { name: "MOLE (10 mm²)", R_DC: 2.7060, X_R_ratio: 3.0, code: "MOLE" },
+            { name: "SQUIRREL (20 mm²)", R_DC: 1.3700, X_R_ratio: 4.5, code: "SQUIRREL" },
+            { name: "WEASEL (30 mm²)", R_DC: 0.9077, X_R_ratio: 6.0, code: "WEASEL" },
+            { name: "FERRET (40 mm²)", R_DC: 0.6766, X_R_ratio: 7.0, code: "FERRET" },
+            { name: "RABBIT (50 mm²)", R_DC: 0.5426, X_R_ratio: 8.0, code: "RABBIT" },
+            { name: "MINK (60 mm²)", R_DC: 0.4545, X_R_ratio: 9.0, code: "MINK" },
+            { name: "BEAVER (70 mm²)", R_DC: 0.3825, X_R_ratio: 10, code: "BEAVER" },
+            { name: "CAT (90 mm²)", R_DC: 0.3006, X_R_ratio: 11, code: "CAT" },
+            { name: "HARE (100 mm²)", R_DC: 0.2733, X_R_ratio: 11.5, code: "HARE" },
+            { name: "LEOPARD (125 mm²)", R_DC: 0.2185, X_R_ratio: 13, code: "LEOPARD" },
+            { name: "WOLF (150 mm²)", R_DC: 0.1828, X_R_ratio: 14, code: "WOLF" },
+            { name: "LYNX (175 mm²)", R_DC: 0.1576, X_R_ratio: 15, code: "LYNX" },
+            { name: "PANTHER (200 mm²)", R_DC: 0.1363, X_R_ratio: 16, code: "PANTHER" },
+            { name: "LION (225 mm²)", R_DC: 0.1212, X_R_ratio: 17, code: "LION" },
+            { name: "BEAR (250 mm²)", R_DC: 0.1093, X_R_ratio: 18, code: "BEAR" },
+            { name: "GOAT (300 mm²)", R_DC: 0.0891, X_R_ratio: 20, code: "GOAT" },
+            { name: "SHEEP (350 mm²)", R_DC: 0.0770, X_R_ratio: 21, code: "SHEEP" },
+            { name: "DEER (400 mm²)", R_DC: 0.0673, X_R_ratio: 22, code: "DEER" },
+            { name: "ELK (450 mm²)", R_DC: 0.0606, X_R_ratio: 23, code: "ELK" },
+            { name: "MOOSE (500 mm²)", R_DC: 0.0547, X_R_ratio: 24, code: "MOOSE" },
+            
+            // French Sizes (from Page 13)
+            { name: "Canna 37.7", R_DC: 1.020, X_R_ratio: 5.0, code: "Canna37" },
+            { name: "Canna 59.7", R_DC: 0.766, X_R_ratio: 6.0, code: "Canna59" },
+            { name: "Canna 75.5", R_DC: 0.605, X_R_ratio: 7.0, code: "Canna75" },
+            { name: "Canna 93.3", R_DC: 0.490, X_R_ratio: 8.0, code: "Canna93" },
+            { name: "Crocus 228", R_DC: 0.1570, X_R_ratio: 15, code: "Crocus228" },
+            { name: "Crocus 288", R_DC: 0.1240, X_R_ratio: 17, code: "Crocus288" },
+            { name: "Crocus 412", R_DC: 0.0890, X_R_ratio: 19, code: "Crocus412" },
+            
+            // DIN Sizes (from Page 11, 12)
+            { name: "DIN 50/8", R_DC: 0.5946, X_R_ratio: 7.5, code: "DIN50" },
+            { name: "DIN 95/15", R_DC: 0.3058, X_R_ratio: 10, code: "DIN95" },
+            { name: "DIN 120/20", R_DC: 0.2374, X_R_ratio: 11, code: "DIN120" },
+            { name: "DIN 170/40", R_DC: 0.1682, X_R_ratio: 13, code: "DIN170" },
+            { name: "DIN 240/40", R_DC: 0.1188, X_R_ratio: 16, code: "DIN240" },
+            { name: "DIN 380/50", R_DC: 0.0757, X_R_ratio: 21, code: "DIN380" },
+            { name: "DIN 550/70", R_DC: 0.0526, X_R_ratio: 25, code: "DIN550" },
+            { name: "DIN 680/85", R_DC: 0.0426, X_R_ratio: 28, code: "DIN680" },
+        ];
+        
+        // System Data Storage
+        let busData = [];
+        let lineData = [];
+        let lfResults = null;
+        let lfIterativeData = []; // New array to store step-by-step results
+        let selectedFaultBus = 10;
+        let busCoordinates = []; // Stores x, y coordinates for SVG
+
+        // --- Core Simulation Functions ---
+
+        /**
+         * Simulates the Load Flow process using user-defined parameters and active lines.
+         */
+        function loadFlow(method) {
+            lfIterativeData = []; // Clear previous iterative data
+            const activeLines = lineData.filter(line => line.active);
+            
+            // Calculate total system impedance (proxy for system strength)
+            const totalZ_active = activeLines.reduce((sum, line) => sum + line.Z_pu, 0);
+            const systemImpedanceFactor = totalZ_active > 0 ? totalZ_active / NUM_LINES : 1.0; 
+            const totalLoad = busData.reduce((sum, bus) => sum + bus.P_load, 0);
+
+            const MAX_ITERATIONS = (method === 'NR') ? 4 : 8;
+            
+            // Initialize voltage and angle values (V_init is already in busData.V and busData.V_result)
+            let V_current = busData.map(b => b.V_result);
+            let delta_current = busData.map(b => b.delta);
+
+            // Save initial values (Iteration 0)
+            lfIterativeData.push({
+                iteration: 0,
+                method: method,
+                data: busData.map(b => ({
+                    id: b.id,
+                    V: b.V_result,
+                    delta: b.delta,
+                }))
+            });
+
+            for (let k = 1; k <= MAX_ITERATIONS; k++) {
+                let V_next = [...V_current];
+                let delta_next = [...delta_current];
+                
+                // Simulate matrix solution/corrections (simplified)
+                busData.forEach((bus, i) => {
+                    if (bus.type === 'Slack') {
+                        V_next[i] = 1.000;
+                        delta_next[i] = 0.00;
+                        return;
+                    }
+                    
+                    // Convergence logic:
+                    // 1. Calculate base drop/correction (changes less each iteration)
+                    const loadRatio = bus.P_load / totalLoad;
+                    const dropBase = loadRatio * 0.15 * systemImpedanceFactor;
+                    
+                    let correctionFactor = (method === 'NR') ? 0.3 : 0.15; // NR converges faster (larger step)
+                    
+                    // Reduce correction factor per iteration to simulate convergence
+                    correctionFactor *= (MAX_ITERATIONS - k + 1) / MAX_ITERATIONS; 
+                    
+                    // Simulated Power Mismatch
+                    const P_mismatch = bus.P_load + bus.P_gen - 1.0; 
+                    const Q_mismatch = bus.Q_load - bus.Q_gen;
+
+                    // Simulated Corrections (simplified Jacobian/Ybus effect)
+                    let dV = -(P_mismatch * 0.05 + Q_mismatch * 0.01) * correctionFactor;
+                    let dDelta = -(P_mismatch * 0.02 - Q_mismatch * 0.03) * correctionFactor * 10;
+                    
+                    if (bus.type === 'PV') {
+                         // V is fixed (setpoint)
+                         V_next[i] = bus.V; 
+                         delta_next[i] = delta_current[i] + dDelta; // Only angle adjusts
+                    } else { // PQ
+                         V_next[i] = V_current[i] + dV;
+                         delta_next[i] = delta_current[i] + dDelta;
+                    }
+                    
+                    // Reapply bounds and clean up
+                    V_next[i] = parseFloat(Math.max(0.80, Math.min(1.05, V_next[i])).toFixed(4));
+                    delta_next[i] = parseFloat(delta_next[i].toFixed(4));
+                });
+                
+                V_current = V_next;
+                delta_current = delta_next;
+
+                // Save iterative results
+                lfIterativeData.push({
+                    iteration: k,
+                    method: method,
+                    data: busData.map((b, i) => ({
+                        id: b.id,
+                        V: V_current[i],
+                        delta: delta_current[i]
+                    }))
+                });
+            }
+
+            // Final results update
+            busData.forEach((bus, i) => {
+                bus.V_result = V_current[i];
+                bus.delta = delta_current[i];
+            });
+
+            lfResults = busData.map(bus => ({
+                id: bus.id,
+                V: bus.V_result,
+                delta: bus.delta
+            }));
+
+            return lfResults;
+        }
+
+        /**
+         * Simulates the Short Circuit Analysis for SLG, LLL, LL, or LLG fault.
+         */
+        function shortCircuit(faultBusId, faultType) {
+            const busIndex = faultBusId - 1;
+            const V_pre_fault = lfResults ? lfResults[busIndex].V : busData[busIndex].V_result;
+            
+            const activeLines = lineData.filter(line => line.active);
+            const totalZ_active = activeLines.reduce((sum, line) => sum + line.Z_pu, 0);
+
+            // Simulate Z-Bus diagonal value (system strength proxy)
+            const baseZ1 = totalZ_active / (NUM_LINES * 2) + 0.01; 
+            const Z1 = baseZ1 * (1 + (busIndex / NUM_BUSES) * 0.5); // Positive Sequence Impedance
+            const Z2 = Z1 * 1.05; // Negative Sequence (slightly higher than Z1)
+            const Z0 = Z1 * 2.5; // Zero Sequence (much higher due to ground path)
+
+            let Z_total_pu;
+            let I1_pu, I2_pu, I0_pu; // Sequence Currents
+
+            // Calculate Sequence Currents based on fault type
+            const V_base = 1.0; // Pre-fault voltage V1 is usually 1.0 p.u.
+
+            switch (faultType) {
+                case 'LLL': // Three-Phase Fault: I1 = V / Z1; I2=I0=0
+                    I1_pu = V_base / Z1;
+                    I2_pu = 0.0;
+                    I0_pu = 0.0;
+                    Z_total_pu = Z1;
+                    break;
+                case 'SLG': // Single-Line-to-Ground Fault: I1 = I2 = I0 = V / (Z1 + Z2 + Z0)
+                    I1_pu = V_base / (Z1 + Z2 + Z0);
+                    I2_pu = I1_pu;
+                    I0_pu = I1_pu;
+                    Z_total_pu = Z1 + Z2 + Z0;
+                    break;
+                case 'LL': // Line-to-Line Fault: I1 = V / (Z1 + Z2); I2 = -I1; I0=0
+                    I1_pu = V_base / (Z1 + Z2);
+                    I2_pu = -I1_pu;
+                    I0_pu = 0.0;
+                    Z_total_pu = Z1 + Z2;
+                    break;
+                case 'LLG': // Double-Line-to-Ground Fault: Complex parallel combination
+                    // Simplified estimation of I1, I2, I0 magnitudes
+                    // Z_parallel = Z2 || Z0 = (Z2*Z0) / (Z2+Z0)
+                    const Z_parallel = (Z2 * Z0) / (Z2 + Z0);
+                    I1_pu = V_base / (Z1 + Z_parallel);
+                    I0_pu = -I1_pu * (Z2 / (Z2 + Z0));
+                    I2_pu = -I1_pu * (Z0 / (Z2 + Z0));
+                    Z_total_pu = Z1 + Z_parallel; 
+                    break;
+            }
+            
+            // Total Fault Current (p.u.) - based on sequence current combinations
+            let I_fault_pu;
+            if (faultType === 'LLL') {
+                I_fault_pu = I1_pu;
+            } else if (faultType === 'SLG') {
+                I_fault_pu = 3 * I0_pu;
+            } else if (faultType === 'LL') {
+                 // Line-to-line current is sqrt(3) * I1
+                I_fault_pu = Math.sqrt(3) * I1_pu;
+            } else { // LLG
+                // LLG current (max phase current) is usually 3*I0 + I1 + I2 (phasor sum, using magnitude for simulation)
+                I_fault_pu = Math.abs(I1_pu) + Math.abs(I2_pu) + Math.abs(I0_pu); 
+            }
+            
+            // Base Current (A): I_base = BASE_MVA / (sqrt(3) * BASE_KV_LINE)
+            const I_base_A = (BASE_MVA * 1000) / (Math.sqrt(3) * BASE_KV_LINE);
+            const I_fault_A = I_fault_pu * I_base_A;
+
+            // Short Circuit MVA (SCA) MVA_sc = I_fault_pu * BASE_MVA
+            const MVA_sc = I_fault_pu * BASE_MVA;
+
+            return {
+                busId: faultBusId,
+                faultType: faultType,
+                preFaultVoltage: V_pre_fault.toFixed(4) + ' p.u.',
+                Z1: Z1.toFixed(4),
+                Z2: Z2.toFixed(4),
+                Z0: Z0.toFixed(4),
+                I1_pu: I1_pu.toFixed(4),
+                I2_pu: I2_pu.toFixed(4),
+                I0_pu: I0_pu.toFixed(4),
+                I_fault_A: Math.round(I_fault_A).toLocaleString() + ' Amperes',
+                MVA_sc: MVA_sc.toFixed(2) + ' MVA'
+            };
+        }
+
+        // --- Control and Display Functions ---
+
+        /**
+         * Runs Load Flow and updates display.
+         * MADE GLOBAL for HTML onclick.
+         */
+        function runLoadFlow() {
+            const method = document.getElementById('loadFlowMethod').value;
+            const lfMessage = document.getElementById('lfMessage');
+            const lfIterativeMessage = document.getElementById('lfIterativeMessage');
+            const table = document.getElementById('lfTable');
+
+            // 1. Hide tables and display the loading spinner in the message area
+            table.classList.add('hidden');
+            lfMessage.classList.remove('hidden');
+            lfIterativeMessage.innerHTML = `<p class="text-center text-primary py-10 flex items-center justify-center font-semibold">
+                                            <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                            </svg>
+                                            Running ${method} Load Flow Analysis (Simulated Iterations)...
+                                        </p>`;
+
+
+            setTimeout(() => {
+                const results = loadFlow(method);
+                displayLoadFlowResults(results, method);
+                displayIterativeResults(); // New function call
+                displayNetworkTopology(results); // Update SVG visualizer
+                showResults('loadFlow');
+            }, 1500);
+        }
+
+        /**
+         * Runs Short Circuit analysis and updates display.
+         * MADE GLOBAL for HTML onclick.
+         */
+        function runShortCircuit() {
+            const inputBus = parseInt(document.getElementById('faultBus').value);
+            const faultType = document.getElementById('faultType').value;
+            const faultBusId = inputBus;
+            const scBody = document.getElementById('scBody');
+            scBody.innerHTML = '';
+            showResults('shortCircuit');
+            selectFaultBus(faultBusId); 
+
+            if (faultBusId < 1 || faultBusId > 15 || isNaN(faultBusId)) {
+                scBody.innerHTML = `<tr><td colspan="2" class="text-center text-red-600 py-4">Invalid bus ID. Please select a bus between 1 and 15.</td></tr>`;
+                return;
+            }
+
+            scBody.innerHTML = `<tr><td colspan="2" class="text-center text-secondary py-4 flex items-center justify-center font-semibold">
+                                    <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-secondary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                    </svg>
+                                    Running **${faultType}** Short Circuit Analysis...
+                                </td></tr>`;
+
+            setTimeout(() => {
+                const results = shortCircuit(faultBusId, faultType);
+                displayShortCircuitResults(results);
+            }, 1000);
+        }
+
+
+        /**
+         * Recalculates R_pu and X_pu for a line based on a new ACSR type.
+         */
+        function recalculateLineImpedance(lineId, newWireType) {
+            const line = lineData.find(l => l.id === lineId);
+            const acsrType = ACSR_TYPES.find(t => t.code === newWireType);
+            const Z_BASE = (BASE_KV_LINE * BASE_KV_LINE) / BASE_MVA;
+            const assumedLengthKm = 5; // Fixed assumed length for p.u. calculation
+
+            if (line && acsrType) {
+                // Calculate R_pu from ACSR data
+                const R_pu = parseFloat((acsrType.R_DC * assumedLengthKm / Z_BASE).toFixed(6));
+                
+                // Calculate X_pu using the assumed X/R ratio
+                const X_pu = parseFloat((R_pu * acsrType.X_R_ratio).toFixed(6));
+
+                line.R_pu = R_pu;
+                line.X_pu = X_pu;
+                line.R_user = R_pu; // Reset user value to new calculated value
+                line.X_user = X_pu; // Reset user value to new calculated value
+                line.Z_pu = Math.sqrt(line.R_user * line.R_user + line.X_user * line.X_user);
+                line.wireType = newWireType;
+            }
+        }
+
+
+        /**
+         * Initializes the 15-Bus system data, including ACSR line properties.
+         */
+        function initializeSystemData() {
+            busData = [];
+            lineData = [];
+            busCoordinates = [];
+            const Z_BASE = (BASE_KV_LINE * BASE_KV_LINE) / BASE_MVA;
+
+            // 1. Bus Data Initialization
+            for (let i = 1; i <= NUM_BUSES; i++) {
+                let type = 'PQ';
+                let Pgen = 0.0;
+                let V_init = 1.0;
+
+                if (i === 1) {
+                    type = 'Slack';
+                    V_init = 1.000;
+                } else if (i === 2) {
+                    type = 'PV';
+                    Pgen = parseFloat((Math.random() * 1.5 + 1.0).toFixed(3));
+                    V_init = 1.05;
+                }
+                
+                const loadMultiplier = 1 + (i / NUM_BUSES) * 0.5;
+
+                busData.push({
+                    id: i,
+                    type: type,
+                    P_gen: Pgen,
+                    Q_gen: 0.0,
+                    P_load: parseFloat(((Math.random() * 1.0 + 0.1) * loadMultiplier).toFixed(3)),
+                    Q_load: parseFloat(((Math.random() * 0.5 + 0.1) * loadMultiplier).toFixed(3)),
+                    V: V_init,
+                    delta: 0.0,
+                    V_result: V_init, // Stores the latest calculated V magnitude
+                });
+            }
+            
+            // 2. Define Bus Coordinates for a Cleaned-up, Tiered Layout (SVG width 1000, height 400)
+            const busCoordsMap = {
+                // Tier 1: Generation/Main Hubs (Top)
+                1: { x: 50, y: 50 },    // Slack (Gen)
+                2: { x: 950, y: 50 },   // PV (Gen)
+                3: { x: 300, y: 150 },  // Major Distribution Hub 1
+                4: { x: 700, y: 150 },  // Major Distribution Hub 2
+
+                // Tier 2: Mid-Level Distribution (Center)
+                5: { x: 100, y: 250 },
+                6: { x: 250, y: 300 },
+                7: { x: 450, y: 200 },
+                8: { x: 550, y: 200 },
+                9: { x: 750, y: 300 },
+                10: { x: 900, y: 250 },
+
+                // Tier 3: Local Loads/End of Line (Bottom)
+                11: { x: 50, y: 350 },
+                12: { x: 200, y: 350 },
+                13: { x: 400, y: 350 },
+                14: { x: 600, y: 350 },
+                15: { x: 800, y: 350 }
+            };
+
+            for (let i = 1; i <= NUM_BUSES; i++) {
+                busCoordinates.push({ 
+                    id: i, 
+                    x: busCoordsMap[i].x, 
+                    y: busCoordsMap[i].y 
+                });
+            }
+
+            // 3. Line/Branch Data Initialization (32 Lines)
+            const connections = [
+                // Connections based on new topology
+                [1, 3], [2, 4], [3, 7], [4, 8], [7, 8], [8, 9], [7, 6], [9, 10], 
+                [5, 11], [11, 12], [12, 6], [6, 5], [9, 14], [14, 15], [15, 10], [10, 9],
+                [1, 5], [2, 10], [3, 6], [4, 9], [5, 12], [6, 13], [7, 14], [8, 15],
+                [13, 14], [12, 13], [11, 12], [10, 15], [3, 13], [4, 14], [1, 11], [2, 15]
+            ];
+            
+            // Assign properties to lines
+            connections.slice(0, NUM_LINES).forEach((conn, index) => {
+                const [fromBus, toBus] = conn;
+                
+                // Assign a random ACSR wire type from the new large list
+                const acsrType = ACSR_TYPES[Math.floor(Math.random() * ACSR_TYPES.length)];
+                
+                const Z_BASE_KV_LINE = (BASE_KV_LINE * BASE_KV_LINE) / BASE_MVA;
+                const assumedLengthKm = 5;
+
+                // Calculate R_pu from ACSR data
+                const R_pu = parseFloat((acsrType.R_DC * assumedLengthKm / Z_BASE_KV_LINE).toFixed(6));
+                // Calculate X_pu using the assumed X/R ratio
+                const X_pu = parseFloat((R_pu * acsrType.X_R_ratio).toFixed(6));
+
+
+                lineData.push({
+                    id: index + 1,
+                    from: fromBus,
+                    to: toBus,
+                    R_pu: R_pu, 
+                    X_pu: X_pu, 
+                    R_user: R_pu,
+                    X_user: X_pu,
+                    Z_pu: Math.sqrt(R_pu * R_pu + X_pu * X_pu),
+                    wireType: acsrType.code,
+                    active: true 
+                });
+            });
+
+            // Display configuration panels
+            displayLineConfiguration();
+            displayBusEditing();
+        }
+
+        /**
+         * Renders the network topology using SVG, showing voltage and fault status.
+         */
+        function displayNetworkTopology(results = null) {
+            const svg = document.getElementById('networkSVG');
+            const svgWidth = svg.clientWidth || 1000;
+            const svgHeight = svg.clientHeight || 400;
+            svg.setAttribute('viewBox', `0 0 1000 400`);
+            svg.innerHTML = ''; // Clear previous content
+
+            // 1. Draw Lines (Wires)
+            lineData.forEach(line => {
+                const fromCoords = busCoordinates.find(b => b.id === line.from);
+                const toCoords = busCoordinates.find(b => b.id === line.to);
+
+                // Handle cases where a bus ID might be invalid (user input)
+                if (!fromCoords || !toCoords) return; 
+
+                let lineStroke = line.active ? '#374151' : '#d1d5db'; // Dark line if active, light gray if inactive
+                let lineDash = line.active ? 'none' : '4';
+                let lineOpacity = line.active ? 1.0 : 0.5;
+
+                svg.innerHTML += `
+                    <line x1="${fromCoords.x}" y1="${fromCoords.y}" x2="${toCoords.x}" y2="${toCoords.y}"
+                          stroke="${lineStroke}" stroke-width="2" stroke-dasharray="${lineDash}" opacity="${lineOpacity}" 
+                          title="Line ${line.id}: ${line.from}-${line.to} (${line.wireType})" />
+                `;
+            });
+
+            // 2. Draw Buses (Nodes)
+            busCoordinates.forEach(bus => {
+                let V_text = busData.find(b => b.id === bus.id).V_result.toFixed(3);
+                let color = 'var(--tw-colors-bus-default)'; // Default color
+
+                if (results) {
+                    const res = results.find(r => r.id === bus.id);
+                    if (res) {
+                        if (res.V < 0.97) color = 'var(--tw-colors-bus-low)'; // Yellow: Low
+                        else if (res.V < 0.93) color = 'var(--tw-colors-bus-crit)'; // Red: Critical
+                        else color = 'var(--tw-colors-bus-good)'; // Green: Good
+                    }
+                }
+                
+                // Override for fault bus
+                if (bus.id === selectedFaultBus) {
+                    color = 'var(--tw-colors-bus-fault)';
+                }
+
+                // Node circle
+                svg.innerHTML += `
+                    <circle cx="${bus.x}" cy="${bus.y}" r="12" fill="${color}" stroke="#1f2937" stroke-width="1.5"
+                            cursor="pointer" onclick="selectFaultBus(${bus.id})"
+                            title="Bus ${bus.id}: V=${V_text} p.u." />
+                `;
+                // Node text (Bus ID)
+                svg.innerHTML += `
+                    <text x="${bus.x}" y="${bus.y + 3}" text-anchor="middle" fill="white" font-size="10px" font-weight="bold"
+                          cursor="pointer" onclick="selectFaultBus(${bus.id})">
+                        ${bus.id}
+                    </text>
+                `;
+                // Voltage text label
+                svg.innerHTML += `
+                    <text x="${bus.x}" y="${bus.y + 25}" text-anchor="middle" fill="${color}" font-size="10px">
+                        ${V_text} p.u.
+                    </text>
+                `;
+            });
+        }
+
+
+        /**
+         * Populates the bus parameter editing panel.
+         */
+        function displayBusEditing() {
+            const editDiv = document.getElementById('busParameterEditing');
+            editDiv.innerHTML = '';
+            
+            const busInputs = busData.map(bus => {
+                const isSlack = bus.type === 'Slack';
+                const isPV = bus.type === 'PV';
+                
+                let inputHTML = '';
+                let busWrapperClasses = "bg-gray-50 p-3 rounded-lg border border-gray-200 space-y-2"; 
+
+                if (isSlack) {
+                     // Slack bus: Center the fixed message
+                     inputHTML = `<label class="block text-xs font-bold text-text-dark">Bus ${bus.id} (Slack)</label><span class="text-xs text-gray-500 block text-center pt-2">V and $\\delta$ are fixed.</span>`;
+                     busWrapperClasses = "bg-gray-50 p-3 rounded-lg border border-gray-200 space-y-2 flex flex-col justify-center items-center h-full";
+                } else if (isPV) {
+                    // PV bus: P_gen and V_setpoint side-by-side using flex
+                    inputHTML = `
+                        <label class="block text-xs font-bold text-text-dark">Bus ${bus.id} (PV)</label>
+                        <div class="flex space-x-2">
+                            <div class="flex-1 space-y-1">
+                                <label class="block text-xs font-medium text-gray-600">P Gen</label>
+                                <input type="number" id="p_gen_${bus.id}" value="${bus.P_gen.toFixed(3)}" step="0.01" min="0" 
+                                    class="w-full config-input text-sm" onchange="updateSystemParameter(${bus.id}, 'P_gen', this.value)">
+                            </div>
+                            <div class="flex-1 space-y-1">
+                                <label class="block text-xs font-medium text-gray-600">V Set</label>
+                                <input type="number" id="v_set_${bus.id}" value="${bus.V.toFixed(3)}" step="0.001" min="0.95" max="1.10"
+                                    class="w-full config-input text-sm" onchange="updateSystemParameter(${bus.id}, 'V', this.value)">
+                            </div>
+                        </div>
+                    `;
+                    busWrapperClasses = "bg-gray-50 p-3 rounded-lg border border-gray-200 space-y-2";
+                } else {
+                    // PQ bus: P_load and Q_load side-by-side using flex
+                     inputHTML = `
+                        <label class="block text-xs font-bold text-text-dark">Bus ${bus.id} (PQ)</label>
+                        <div class="flex space-x-2">
+                            <div class="flex-1 space-y-1">
+                                <label class="block text-xs font-medium text-gray-600">P Load</label>
+                                <input type="number" id="p_load_${bus.id}" value="${bus.P_load.toFixed(3)}" step="0.01" min="0"
+                                    class="w-full config-input text-sm" onchange="updateSystemParameter(${bus.id}, 'P_load', this.value)">
+                            </div>
+                            <div class="flex-1 space-y-1">
+                                <label class="block text-xs font-medium text-gray-600">Q Load</label>
+                                <input type="number" id="q_load_${bus.id}" value="${bus.Q_load.toFixed(3)}" step="0.01" min="0"
+                                    class="w-full config-input text-sm" onchange="updateSystemParameter(${bus.id}, 'Q_load', this.value)">
+                            </div>
+                        </div>
+                    `;
+                    busWrapperClasses = "bg-gray-50 p-3 rounded-lg border border-gray-200 space-y-2";
+                }
+                return `<div class="${busWrapperClasses}">${inputHTML}</div>`;
+            }).join('');
+
+            // Inject the fixed HTML directly into the existing grid container
+            editDiv.innerHTML = busInputs;
+        }
+
+        /**
+         * Handles user changes to P, Q, V, R, or X parameters, or line connections/type.
+         */
+        function updateSystemParameter(id, key, value) {
+            const numValue = parseFloat(value);
+            
+            if (key === 'P_gen' || key === 'V' || key === 'P_load' || key === 'Q_load') {
+                const bus = busData.find(b => b.id === id);
+                if (bus && !isNaN(numValue)) {
+                    bus[key] = numValue;
+                }
+            } else {
+                const line = lineData.find(l => l.id === id);
+                if (!line) return;
+
+                if (key === 'R_user' || key === 'X_user') {
+                    if (!isNaN(numValue)) {
+                        line[key] = numValue;
+                        // Recalculate Z_pu based on user R and X
+                        line.Z_pu = Math.sqrt(line.R_user * line.R_user + line.X_user * line.X_user);
+                    }
+                } else if (key === 'wireType') {
+                    recalculateLineImpedance(id, value);
+                    // Rerender line configuration to show updated R/X values
+                    displayLineConfiguration(); 
+                    displayNetworkTopology(lfResults);
+                } else if (key === 'from' || key === 'to') {
+                    const busId = parseInt(value);
+                    if (busId >= 1 && busId <= NUM_BUSES) {
+                        line[key] = busId;
+                        displayNetworkTopology(lfResults);
+                    }
+                }
+            }
+        }
+
+        /**
+         * Toggles the active status of a line.
+         */
+        function toggleLineActive(lineId, isActive) {
+            const line = lineData.find(l => l.id === lineId);
+            if (line) {
+                line.active = isActive;
+            }
+        }
+
+        /**
+         * Selects a bus for the short circuit analysis and updates the SVG.
+         */
+        function selectFaultBus(busId) {
+            if (busId >= 1 && busId <= 15) {
+                selectedFaultBus = busId;
+                document.getElementById('faultBus').value = busId;
+                document.getElementById('currentFaultBus').textContent = busId;
+                displayNetworkTopology(lfResults);
+            }
+        }
+
+        function displayLoadFlowResults(results, method) {
+            const table = document.getElementById('lfTable');
+            const lfMessage = document.getElementById('lfMessage');
+            let tableHTML = `
+                <thead>
+                    <tr>
+                        <th class="rounded-tl-lg">Bus ID</th>
+                        <th>Type</th>
+                        <th>V Mag. (p.u.)</th>
+                        <th>V Angle (Deg.)</th>
+                        <th>P Load (p.u.)</th>
+                        <th>Q Load (p.u.)</th>
+                        <th>P Gen (p.u.)</th>
+                        <th class="rounded-tr-lg">V Set/Ref</th>
+                    </tr>
+                </thead>
+                <tbody>
+            `;
+
+            results.forEach(res => {
+                const bus = busData.find(b => b.id === res.id);
+                let colorClass = 'text-green-600';
+                let voltageWarning = '';
+                let editableAttrs = '';
+
+                if (res.V < 0.97) { colorClass = 'text-yellow-600 font-semibold'; voltageWarning = ' (Low V)'; }
+                if (res.V < 0.93) { colorClass = 'text-red-600 font-bold'; voltageWarning = ' (CRITICAL)'; }
+                if (res.V > 1.04) { colorClass = 'text-primary font-semibold'; voltageWarning = ' (High V)'; }
+
+                if (bus.type !== 'Slack') {
+                    // Make P Load/Gen editable in the table for quick changes
+                    editableAttrs = `
+                        <input type="number" value="${bus.P_load.toFixed(3)}" step="0.01" min="0" class="config-input bus-result-table w-20"
+                               onchange="updateSystemParameter(${bus.id}, 'P_load', this.value); this.value=parseFloat(this.value).toFixed(3);">
+                        </td><td>
+                        <input type="number" value="${bus.Q_load.toFixed(3)}" step="0.01" min="0" class="config-input bus-result-table w-20"
+                               onchange="updateSystemParameter(${bus.id}, 'Q_load', this.value); this.value=parseFloat(this.value).toFixed(3);">
+                        </td><td>
+                        <input type="number" value="${bus.P_gen.toFixed(3)}" step="0.01" min="0" class="config-input bus-result-table w-20"
+                               onchange="updateSystemParameter(${bus.id}, 'P_gen', this.value); this.value=parseFloat(this.value).toFixed(3);">
+                        </td><td>
+                        <input type="number" value="${bus.V.toFixed(3)}" step="0.001" min="0.95" max="1.10" class="config-input bus-result-table w-20"
+                               onchange="updateSystemParameter(${bus.id}, 'V', this.value); this.value=parseFloat(this.value).toFixed(3);">
+                    `;
+                } else {
+                    editableAttrs = `
+                        <span>${bus.P_load.toFixed(3)}</span>
+                        </td><td>
+                        <span>${bus.Q_load.toFixed(3)}</span>
+                        </td><td>
+                        <span>${bus.P_gen.toFixed(3)}</span>
+                        </td><td>
+                        <span>${bus.V.toFixed(3)} (Ref)</span>
+                    `;
+                }
+
+                tableHTML += `
+                    <tr>
+                        <td>${bus.id}</td>
+                        <td>${bus.type}</td>
+                        <td class="${colorClass}">${res.V.toFixed(4)} ${voltageWarning}</td>
+                        <td>${res.delta.toFixed(3)}</td>
+                        <td>${editableAttrs}</td>
+                    </tr>
+                `;
+            });
+
+            tableHTML += `</tbody>`;
+            
+            if (table) {
+                table.innerHTML = tableHTML;
+                table.classList.remove('hidden');
+            } else {
+                console.error("LF Table not found in DOM.");
+            }
+
+            if (lfMessage) {
+                lfMessage.innerHTML = `<p class="text-sm text-center text-primary mb-2 font-medium">Load Flow completed using **${method}** method simulation. ${lineData.filter(l => l.active).length}/${NUM_LINES} wires active.</p>`;
+                lfMessage.classList.add('hidden'); // Hide message when table is visible
+            }
+        }
+
+        function displayIterativeResults() {
+            const iterativeDiv = document.getElementById('loadFlowIterativeResults');
+            const messageDiv = document.getElementById('lfIterativeMessage');
+            
+            if (lfIterativeData.length === 0) {
+                 messageDiv.innerHTML = `<p class="text-gray-500 text-center py-10">The step-by-step convergence data will appear here after running the Load Flow Analysis.</p>`;
+                 return;
+            }
+
+            const method = lfIterativeData[0].method;
+            let htmlContent = `<h3 class="text-lg font-semibold text-text-dark mb-3 text-center">Simulated ${method} Iterations for Convergence ($\text{V}$ and $\mathbf{\delta}$)</h3>`;
+
+            // Loop through each bus to create its own table/section
+            for (let i = 1; i <= NUM_BUSES; i++) {
+                const busId = i;
+                const busType = busData.find(b => b.id === busId).type;
+
+                htmlContent += `
+                    <div class="mb-6 border p-3 rounded-lg bg-gray-50">
+                        <h4 class="font-bold text-md text-text-dark mb-2">Bus ${busId} (${busType})</h4>
+                        <table class="w-full iterative-table">
+                            <thead>
+                                <tr>
+                                    <th rowspan="2">Iteration (k)</th>
+                                    <th colspan="2">Voltage ($\text{V}$)</th>
+                                    <th colspan="2">Angle ($\mathbf{\delta}$) (Deg)</th>
+                                </tr>
+                                <tr>
+                                    <th>Magnitude (p.u.)</th>
+                                    <th>Change ($\Delta \text{V}$)</th>
+                                    <th>Value</th>
+                                    <th>Change ($\Delta \mathbf{\delta}$)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                `;
+
+                // Loop through iterations for this specific bus
+                for (let k = 0; k < lfIterativeData.length; k++) {
+                    const currentData = lfIterativeData[k].data.find(d => d.id === busId);
+                    const prevData = (k > 0) ? lfIterativeData[k-1].data.find(d => d.id === busId) : currentData;
+
+                    const V_mag = currentData.V.toFixed(4);
+                    const delta_val = currentData.delta.toFixed(4);
+                    
+                    const deltaV = (k > 0) ? (currentData.V - prevData.V).toFixed(4) : '-';
+                    const deltaDelta = (k > 0) ? (currentData.delta - prevData.delta).toFixed(4) : '-';
+
+                    htmlContent += `
+                        <tr>
+                            <td>${k}</td>
+                            <td>${V_mag}</td>
+                            <td class="${k > 0 && Math.abs(deltaV) > 0.001 ? 'text-red-500' : 'text-gray-500'}">${deltaV}</td>
+                            <td>${delta_val}</td>
+                            <td class="${k > 0 && Math.abs(deltaDelta) > 0.001 ? 'text-red-500' : 'text-gray-500'}">${deltaDelta}</td>
+                        </tr>
+                    `;
+                }
+                
+                htmlContent += `</tbody></table></div>`;
+            }
+
+            messageDiv.innerHTML = htmlContent;
+        }
+
+
+        function displayShortCircuitResults(results) {
+            const scBody = document.getElementById('scBody');
+            
+            // Map fault codes to display names
+            const faultNames = {
+                'LLL': 'Three-Phase Bolted Fault (L-L-L)',
+                'SLG': 'Single-Line-to-Ground Fault (L-G)',
+                'LL': 'Line-to-Line Fault (L-L)',
+                'LLG': 'Double-Line-to-Ground Fault (L-L-G)'
+            };
+
+            // HTML content with new sequence impedance and current rows
+            scBody.innerHTML = `
+                <tr><td>Faulted Bus ID</td><td>${results.busId}</td></tr>
+                <tr><td>Fault Type</td><td>${faultNames[results.faultType]}</td></tr>
+                <tr><td>Pre-Fault Voltage ($\text{V}_{\text{f}}$)</td><td>${results.preFaultVoltage}</td></tr>
+                
+                <tr class="bg-gray-100"><td colspan="2" class="font-bold text-center">Sequence Impedances (p.u.)</td></tr>
+                <tr><td>Positive Sequence ($\text{Z}_1$)</td><td>${results.Z1}</td></tr>
+                <tr><td>Negative Sequence ($\text{Z}_2$)</td><td>${results.Z2}</td></tr>
+                <tr><td>Zero Sequence ($\text{Z}_0$)</td><td>${results.Z0}</td></tr>
+
+                <tr class="bg-gray-100"><td colspan="2" class="font-bold text-center">Sequence Currents ($\text{I}$) (p.u.)</td></tr>
+                <tr><td>Positive Sequence ($\text{I}_1$)</td><td>${results.I1_pu}</td></tr>
+                <tr><td>Negative Sequence ($\text{I}_2$)</td><td>${results.I2_pu}</td></tr>
+                <tr><td>Zero Sequence ($\text{I}_0$)</td><td>${results.I0_pu}</td></tr>
+                
+                <tr class="bg-gray-100"><td colspan="2" class="font-bold text-center">Fault Results</td></tr>
+                <tr><td>**Fault Current (Amperes)**</td><td class="text-secondary">${results.I_fault_A}</td></tr>
+                <tr><td>**Short Circuit MVA ($\text{MVA}_{\text{sc}}$)**</td><td class="text-secondary">${results.MVA_sc}</td></tr>
+            `;
+
+             document.getElementById('shortCircuitResults').insertAdjacentHTML('afterbegin', `<p class="text-sm text-center text-primary mb-2 font-medium">
+                Short Circuit analysis completed for a bolted **${results.faultType}** fault at Bus ${results.busId}.
+             </p>`);
+        }
+
+        /**
+         * Populates the line configuration panel with toggles and editable R/X inputs.
+         */
+        function displayLineConfiguration() {
+            const configDiv = document.getElementById('lineConfiguration');
+            configDiv.innerHTML = '';
+
+            // Get a sorted list of display names for the dropdown
+            const sortedACSRTypes = ACSR_TYPES.map(type => ({
+                code: type.code,
+                displayName: type.name
+            })).sort((a, b) => a.displayName.localeCompare(b.displayName));
+
+
+            lineData.forEach(line => {
+                const selectElement = `
+                    <select class="line-select" onchange="updateSystemParameter(${line.id}, 'wireType', this.value)">
+                        ${sortedACSRTypes.map(type => 
+                            `<option value="${type.code}" ${line.wireType === type.code ? 'selected' : ''}>${type.displayName}</option>`
+                        ).join('')}
+                    </select>
+                `;
+
+                configDiv.innerHTML += `
+                    <div class="line-item">
+                        <!-- Wire Type Selector -->
+                        ${selectElement}
+
+                        <!-- From Bus -->
+                        <input type="number" value="${line.from}" min="1" max="${NUM_BUSES}" 
+                            class="config-input text-center text-sm" 
+                            onchange="updateSystemParameter(${line.id}, 'from', this.value)" title="From Bus">
+                        
+                        <!-- To Bus -->
+                        <input type="number" value="${line.to}" min="1" max="${NUM_BUSES}" 
+                            class="config-input text-center text-sm" 
+                            onchange="updateSystemParameter(${line.id}, 'to', this.value)" title="To Bus">
+                        
+                        <!-- R (p.u.) Input -->
+                        <input type="number" value="${line.R_user.toFixed(4)}" step="0.0001" min="0" 
+                            class="config-input text-right" 
+                            onchange="updateSystemParameter(${line.id}, 'R_user', this.value)" title="Resistance (p.u.)">
+                        
+                        <!-- X (p.u.) Input -->
+                        <input type="number" value="${line.X_user.toFixed(4)}" step="0.0001" min="0" 
+                            class="config-input text-right" 
+                            onchange="updateSystemParameter(${line.id}, 'X_user', this.value)" title="Reactance (p.u.)">
+                        
+                        <!-- On/Off Toggle -->
+                        <label class="relative inline-flex items-center cursor-pointer justify-center">
+                            <input type="checkbox" ${line.active ? 'checked' : ''} class="sr-only peer" 
+                                   onchange="toggleLineActive(${line.id}, this.checked); displayNetworkTopology(lfResults);">
+                            <div class="w-7 h-4 bg-gray-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-primary"></div>
+                        </label>
+                    </div>
+                `;
+            });
+        }
+
+        /**
+         * Toggles the display between Load Flow and Short Circuit results.
+         */
+        function showResults(view) {
+            const views = {
+                'loadFlow': document.getElementById('loadFlowResults'),
+                'loadFlowIterative': document.getElementById('loadFlowIterativeResults'),
+                'shortCircuit': document.getElementById('shortCircuitResults')
+            };
+            const tabs = {
+                'loadFlow': document.getElementById('tabLF'),
+                'loadFlowIterative': document.getElementById('tabLFIterative'),
+                'shortCircuit': document.getElementById('tabSC')
+            };
+
+            for (let v in views) {
+                if (v === view) {
+                    views[v].classList.remove('hidden');
+                    tabs[v].classList.add('border-primary', 'text-primary');
+                    tabs[v].classList.remove('border-transparent', 'text-gray-500');
+                } else {
+                    views[v].classList.add('hidden');
+                    tabs[v].classList.remove('border-primary', 'text-primary');
+                    tabs[v].classList.add('border-transparent', 'text-gray-500');
+                }
+            }
+        }
+
+        // --- Initialization ---
+
+        // Initialize system data when the page loads
+        document.addEventListener('DOMContentLoaded', () => {
+            initializeSystemData();
+            selectFaultBus(10); // Initialize fault bus selection
+            displayNetworkTopology(); // Initial draw of the SVG
+        });
+    </script>
+</body>
+</html>
