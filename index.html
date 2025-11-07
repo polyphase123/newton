@@ -108,10 +108,10 @@
             background-color: white;
             width: 100%;
         }
-        /* Transformer Specific Styling */
+        /* Transformer Specific Styling - Adjusted for editable From/To */
         .xfmr-item-block {
             display: grid;
-            grid-template-columns: 0.5fr 0.4fr 0.4fr 1.5fr 1fr;
+            grid-template-columns: 0.3fr 0.4fr 0.4fr 1.3fr 0.8fr; /* ID | From | To | MVA | Z_pu */
             align-items: center;
             gap: 4px;
             padding: 8px 0;
@@ -185,8 +185,8 @@
                     <h3 class="text-lg font-semibold text-text-dark mb-3">Transformer Banks (7)</h3>
                      <div class="xfmr-item-block text-xs text-gray-500 font-bold mb-1 px-1">
                         <span>ID</span>
-                        <span>From</span>
-                        <span>To</span>
+                        <span>From (HV)</span>
+                        <span>To (LV)</span>
                         <span>MVA Rating</span>
                         <span>Z p.u.</span>
                     </div>
@@ -1574,10 +1574,10 @@
         }
 
         /**
-         * Updates Transformer parameters (MVA rating).
+         * Updates Transformer parameters (MVA rating, From/To bus).
          * @param {number} id - Transformer ID.
-         * @param {string} key - Parameter key ('MVA').
-         * @param {string} value - New MVA value.
+         * @param {string} key - Parameter key ('MVA', 'from', 'to').
+         * @param {string|number} value - New value.
          */
         function updateXfmrParameter(id, key, value) {
             const xfmr = xfmrData.find(x => x.id === id);
@@ -1596,11 +1596,29 @@
                     xfmr.R_pu = parseFloat(R_pu.toFixed(5));
                     xfmr.X_pu = parseFloat(X_pu.toFixed(5));
                     xfmr.Z_pu = parseFloat(Math.sqrt(xfmr.R_pu * xfmr.R_pu + xfmr.X_pu * xfmr.X_pu).toFixed(5));
+                }
+            } else if (key === 'from' || key === 'to') {
+                const newBusId = parseInt(value);
+                if (newBusId >= 1 && newBusId <= NUM_BUSES) {
+                    const bus = busData.find(b => b.id === newBusId);
+                    if (!bus) return; // Bus must exist
+
+                    const isHV = (key === 'from'); // 'from' is the primary (HV) side
+                    const currentConnectedKv = isHV ? xfmr.kv_h : xfmr.kv_x;
                     
-                    displayXfmrConfiguration(); 
-                    displayNetworkTopology(lfResults);
+                    // Validate that the new bus has the correct kV level for that transformer winding
+                    if (bus.kv_level === currentConnectedKv) {
+                        xfmr[key] = newBusId;
+                    } else {
+                        // Optionally provide user feedback here if the kV level doesn't match
+                        console.warn(`Cannot connect XFMR ${xfmr.id}: Bus ${newBusId} is ${bus.kv_level}kV, expected ${currentConnectedKv}kV.`);
+                    }
                 }
             }
+            
+            // Update UI regardless of the type of change
+            displayXfmrConfiguration(); 
+            displayNetworkTopology(lfResults);
         }
 
 
@@ -1952,8 +1970,17 @@
                 configDiv.innerHTML += `
                     <div class="xfmr-item-block">
                         <span class="font-bold">${xfmr.id}</span>
-                        <span class="text-center">${xfmr.from} (${xfmr.kv_h}kV)</span>
-                        <span class="text-center">${xfmr.to} (${xfmr.kv_x}kV)</span>
+                        
+                        <!-- Editable FROM Bus (HV Side) -->
+                        <input type="number" value="${xfmr.from}" min="1" max="${NUM_BUSES}" 
+                            class="config-input text-center text-sm" 
+                            onchange="updateXfmrParameter(${xfmr.id}, 'from', this.value)" title="From Bus (${xfmr.kv_h}kV)">
+                            
+                        <!-- Editable TO Bus (LV Side) -->
+                        <input type="number" value="${xfmr.to}" min="1" max="${NUM_BUSES}" 
+                            class="config-input text-center text-sm" 
+                            onchange="updateXfmrParameter(${xfmr.id}, 'to', this.value)" title="To Bus (${xfmr.kv_x}kV)">
+                            
                         ${MVA_select}
                         <span class="font-mono text-xs text-right">${xfmr.Z_pu.toFixed(4)}</span>
                     </div>
