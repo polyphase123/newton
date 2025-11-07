@@ -506,6 +506,9 @@
             hasRun: false
         };
         
+        // Stored initial line configuration for N-1 reset
+        let originalLineData = [];
+        
         // --- CORE UTILITY FUNCTIONS ---
 
         /**
@@ -566,8 +569,6 @@
             // --- Feature 4: N-1 Contingency Logic ---
             let trippedLine = null;
             const isContingencyEnabled = document.getElementById('nMinus1').checked;
-            // IMPORTANT: originalLineData is defined globally later, but we need a fresh copy of the initial state
-            // to avoid side effects if N-1 is enabled/disabled repeatedly.
             let tempOriginalLineData = JSON.parse(JSON.stringify(originalLineData)); 
             
             if (isContingencyEnabled) {
@@ -1758,6 +1759,7 @@
                     }
                     
                     // DG Control (Distributed Generation)
+                    // Note: DG capacity is now present on all buses
                     if (bus.DG_capacity > 0) {
                         smartGridFields += `
                             <div class="space-y-1 pt-2 border-t border-gray-200">
@@ -1778,6 +1780,7 @@
                     }
                     
                     // Feature 3: Capacitor Bank
+                    // Note: Capacitor is now present on all buses
                     if (bus.capacitor_mvar_max > 0) {
                         smartGridFields += `
                             <div class="space-y-1 pt-2 border-t border-gray-200">
@@ -1790,6 +1793,7 @@
                     }
 
                     // Demand Response (DR)
+                    // Note: DR is now enabled on all PQ buses
                     if (bus.DR_enabled) {
                         smartGridFields += `
                             <div class="space-y-1 pt-2 border-t border-gray-200">
@@ -1852,7 +1856,8 @@
         }
         
         // Stored initial line configuration for N-1 reset
-        let originalLineData = [];
+        // The declaration below is now redundant and removed to fix the SyntaxError.
+        // let originalLineData = []; 
 
         /**
          * Initializes all system data: buses (with kV levels), coordinates, and lines.
@@ -1890,12 +1895,23 @@
                 const load_type = ['Industrial', 'Commercial', 'Residential'][i % 3];
                 const thd_base = LOAD_TYPES[load_type].thd_avg;
 
+                // --- START User Request Modification ---
+                // Set universal DG capacity (1.0 p.u.) and Capacitor Max (15 MVAR)
+                let dgCapacity = (i === 1 || i === 2) ? 0.0 : 1.0; // Slack/PV bus skip DG for simplicity
+                let dgStatus = 'N/A';
+                if (dgCapacity > 0) dgStatus = 'Off'; // Set all new DGs to Off by default
+                
+                let capMax = (i === 1) ? 0.0 : 15.0; // Slack bus skips cap for simplicity
+                
+                let drEnabled = (type === 'PQ'); // Enable DR on all PQ buses (non-Slack, non-PV)
+                // --- END User Request Modification ---
+
                 busData.push({
                     id: i,
                     type: type,
-                    P_gen_base: Pgen, // Base generator output for PV bus
-                    P_gen: Pgen,      // Current generator output (modified by DG factor)
-                    Q_gen: 0.0,       // Current Q generation
+                    P_gen_base: Pgen, 
+                    P_gen: Pgen,      
+                    Q_gen: 0.0,       
                     P_load_base: P_load_base, 
                     Q_load_base: Q_load_base, 
                     P_load: P_load_base, 
@@ -1909,13 +1925,13 @@
                     load_type: load_type,
                     thd_base: thd_base,
                     thd_value: thd_base,
-                    DG_status: (i === 4 || i === 12) ? 'Off' : 'N/A', 
-                    DG_capacity: (i === 4 || i === 12) ? 1.5 : 0.0,
+                    DG_status: dgStatus, 
+                    DG_capacity: dgCapacity,
                     DG_Q_mode: 'Unity', 
-                    DR_enabled: (i === 7 || i === 15) ? true : false, 
+                    DR_enabled: drEnabled, 
                     DR_reduction: 0.0,
                     // Feature 3: Capacitor Banks
-                    capacitor_mvar_max: (i === 3 || i === 4 || i === 9 || i === 10) ? 20.0 : 0.0, // Key HV/MV buses get caps
+                    capacitor_mvar_max: capMax, 
                     capacitor_mvar: 0.0
                 });
             }
