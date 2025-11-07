@@ -5,22 +5,26 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Smart Grid Simulator</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js for dynamic graphing -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <script>
         tailwind.config = {
             theme: {
                 extend: {
                     colors: {
-                        'primary': '#10b981', /* Emerald Green */
+                        'primary': '#059669', /* Dark Emerald */
                         'secondary': '#f97316', /* Orange */
+                        'accent-blue': '#3b82f6', /* Blue */
                         'text-dark': '#1f2937',
                         'bg-light': '#ffffff',
                         'bus-good': '#10b981',
                         'bus-low': '#fbbf24',
                         'bus-crit': '#ef4444',
                         'bus-fault': '#dc2626',
-                        'bus-default': '#6b7280', /* Gray for unanalyzed state */
+                        'bus-default': '#6b7280', 
                         'code-pass': '#10b981',
-                        'code-fail': '#dc2626',
+                        'code-fail': '#ef4444',
+                        'code-fix': '#22c55e', /* Green for fixed items */
                     },
                     fontFamily: {
                         sans: ['Inter', 'sans-serif'],
@@ -31,36 +35,30 @@
     </script>
     <style>
         body {
-            background-color: #f3f4f6; /* Light background */
-            color: #1f2937; /* Dark text */
+            background-color: #f3f4f6; 
+            color: #1f2937; 
             font-family: 'Inter', sans-serif;
             min-height: 100vh;
         }
         /* Tables */
-        .bus-result-table th, .bus-result-table td {
+        .bus-result-table th, .bus-result-table td, .compliance-table th, .compliance-table td {
             padding: 8px;
             text-align: left;
             border-bottom: 1px solid #d1d5db;
             font-size: 0.875rem;
         }
-        .bus-result-table th {
+        .bus-result-table th, .compliance-table th {
             background-color: #e5e7eb;
             color: #4b5563;
             font-weight: 600;
         }
-        .short-circuit-table th, .short-circuit-table td, .compliance-table th, .compliance-table td {
-            padding: 8px;
-            text-align: left;
-            border-bottom: 1px solid #d1d5db;
-            font-size: 0.875rem;
-        }
         .short-circuit-table td:nth-child(2) {
             font-weight: 700;
-            color: #f97316; /* Secondary color for results */
+            color: #f97316; 
         }
         /* Configuration Inputs */
         .config-input {
-            width: 100%; /* Default width changed to 100% for better layout in grid */
+            width: 100%; 
             padding: 2px 4px;
             border: 1px solid #d1d5db;
             border-radius: 4px;
@@ -71,34 +69,18 @@
         .config-list {
             max-height: 400px;
             overflow-y: auto;
-            padding-right: 8px; /* For scrollbar padding */
+            padding-right: 8px; 
         }
-        /* Adjusted grid for line configuration to fit new dropdowns and inputs */
-        .line-item {
-            display: grid;
-            grid-template-columns: 1.2fr 0.5fr 0.5fr 0.7fr 0.7fr 0.3fr;
-            align-items: center;
-            gap: 4px;
-            padding: 8px 0;
-            border-bottom: 1px solid #e5e7eb;
-            font-size: 0.75rem; /* Reduced font size to fit more elements */
-        }
-        /* New line config layout for breakers/reclosers */
+        /* Line config layout for breakers/reclosers */
         .line-item-full {
-             display: grid;
-            grid-template-columns: 1.2fr 0.5fr 0.5fr 0.7fr 0.7fr 0.7fr 0.7fr 0.3fr; /* 8 columns */
+            display: grid;
+            grid-template-columns: 1.2fr 0.5fr 0.5fr 0.7fr 0.7fr 0.9fr 0.9fr 0.3fr; /* 8 columns + protection */
             align-items: center;
             gap: 4px;
             padding: 8px 0;
             border-bottom: 1px solid #e5e7eb;
             font-size: 0.75rem;
         }
-        .line-item > span {
-             white-space: nowrap;
-             overflow: hidden;
-             text-overflow: ellipsis;
-        }
-        /* Style for the new select dropdown */
         .line-select {
             padding: 2px;
             border: 1px solid #d1d5db;
@@ -113,90 +95,98 @@
         #networkSVG {
             border: 1px solid #e5e7eb;
             border-radius: 12px;
-            background-color: #ffffff;
+            background-color: #fcfcfc;
             width: 100%;
             height: 400px;
         }
-        /* Small input fix in table */
-        .bus-result-table .config-input {
-            width: 70px; /* Make inputs in the table smaller */
-            padding: 1px 3px;
-        }
-        /* Iterative Table Styling */
-        .iterative-table th, .iterative-table td {
-            padding: 6px;
-            font-size: 0.75rem;
-            border: 1px solid #e5e7eb;
-            text-align: center;
-        }
-        .iterative-table th {
-            background-color: #f3f4f6;
-        }
         /* Bubbly Button Style */
         .bubbly-button {
-            transition: all 0.3s ease;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1), 0 1px 3px rgba(0, 0, 0, 0.08);
+            transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            box-shadow: 0 6px 10px rgba(0, 0, 0, 0.15);
         }
         .bubbly-button:hover {
-            transform: scale(1.01);
-            box-shadow: 0 10px 15px rgba(0, 0, 0, 0.1), 0 4px 6px rgba(0, 0, 0, 0.05);
+            transform: translateY(-2px) scale(1.01);
+            box-shadow: 0 12px 20px rgba(0, 0, 0, 0.2);
+        }
+        .bubbly-button:active {
+            transform: translateY(0);
+        }
+        .tab-button {
+            transition: color 0.3s, border-color 0.3s;
+        }
+        /* Fix for Chart resizing issue */
+        .chart-container {
+            position: relative;
+            height: 300px; /* Fixed height to prevent CLS */
         }
     </style>
 </head>
 <body class="p-4 sm:p-8">
 
     <div id="app" class="max-w-6xl mx-auto">
-        <h1 class="text-3xl font-extrabold text-text-dark mb-6 border-b-2 border-primary pb-2 text-center flex items-center justify-center">
-            <!-- Icon for Smart Grid Simulator -->
-            <svg class="w-8 h-8 mr-2 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
-            Smart Grid Simulator
+        <h1 class="text-3xl font-extrabold text-text-dark mb-6 border-b-4 border-accent-blue pb-3 text-center flex items-center justify-center">
+            <!-- New, colorful logo/icon -->
+            <svg class="w-10 h-10 mr-3 text-accent-blue" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+            <span class="text-primary">Smart</span> Grid Simulator 
         </h1>
 
         <!-- System Visualization and Configuration -->
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
 
             <!-- Network Topology Diagram (SVG) -->
-            <div class="lg:col-span-2 bg-white p-5 rounded-xl shadow-xl">
-                <h2 class="text-xl font-semibold text-text-dark mb-4">Network Topology & Voltage Status </h2>
+            <div class="lg:col-span-2 bg-white p-5 rounded-xl shadow-2xl border border-gray-100">
+                <h2 class="text-xl font-semibold text-text-dark mb-4 flex items-center">
+                    <svg class="w-5 h-5 mr-2 text-primary" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"></path></svg>
+                    Network Topology & Voltage Status
+                </h2>
                 <div id="svgContainer">
                      <svg id="networkSVG"></svg>
                 </div>
-                <p id="faultBusTip" class="mt-4 text-center text-sm text-gray-500">Click a bus node in the diagram to select the fault location. Current Fault Bus: <span id="currentFaultBus" class="font-bold text-red-600">10</span></p>
+                <p id="faultBusTip" class="mt-4 text-center text-sm text-gray-500">Click a bus node to select the fault location. Current Fault Bus: <span id="currentFaultBus" class="font-bold text-red-600">10</span></p>
             </div>
 
             <!-- Line Configuration -->
-            <div class="bg-white p-5 rounded-xl shadow-xl">
-                <h2 class="text-xl font-semibold text-text-dark mb-4 border-b border-gray-300 pb-2">Line Configuration & Protection (32 Lines)</h2>
-                <div id="lineConfigHeader" class="text-xs text-gray-500 grid grid-cols-8 gap-2 font-bold mb-1 px-1">
+            <div class="bg-white p-5 rounded-xl shadow-2xl border border-gray-100">
+                <h2 class="text-xl font-semibold text-text-dark mb-4 border-b border-gray-300 pb-2 flex items-center">
+                    <svg class="w-5 h-5 mr-2 text-secondary" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM7.17 11h9.66L12 15.3l-4.83-4.3z"></path></svg>
+                    Line & Protection Config (32 Lines)
+                </h2>
+                <div id="lineConfigHeader" class="text-xs text-gray-500 grid grid-cols-8 gap-2 font-bold mb-1 px-1 line-item-full">
                     <span>Wire Type</span>
                     <span>From</span>
                     <span>To</span>
                     <span class="text-right">R (p.u.)</span>
                     <span class="text-right">X (p.u.)</span>
                     <span>Breaker</span>
-                    <span>Recloser</span>
+                    <span class="cursor-pointer font-extrabold" onclick="openCodeDetails('ANSI_CODE_EXPLANATION')">ANSI Relay</span>
                     <span>On/Off</span>
                 </div>
                 <div id="lineConfiguration" class="config-list">
                     <!-- Line toggles, R/X, Breaker/Recloser inputs will be inserted here -->
                 </div>
-                <button onclick="runLoadFlow()" class="bubbly-button mt-4 w-full py-2 px-4 bg-gradient-to-r from-primary to-teal-500 text-white font-bold rounded-xl hover:bg-teal-700 transition duration-300 shadow-lg">
+                <button onclick="runLoadFlow()" class="bubbly-button mt-4 w-full py-3 px-4 bg-gradient-to-r from-primary to-teal-400 text-white font-extrabold rounded-xl shadow-lg hover:shadow-xl">
                     <svg class="w-5 h-5 inline-block mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0h6m-6 0h-2m8 0V7a2 2 0 00-2-2h-2a2 2 0 00-2 2v12m-2-12h4m2 0V5a2 2 0 00-2-2h-2a2 2 0 00-2 2v12m-2-12h4"></path></svg>
-                    Apply Changes & Run Load Flow
+                    Run Load Flow & Compliance Check
                 </button>
             </div>
         </div>
 
         <!-- Controls Panel (Load/Gen Editing) -->
-        <div class="bg-white p-5 rounded-xl shadow-xl mb-6 grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div class="bg-white p-5 rounded-xl shadow-2xl mb-6 grid grid-cols-1 md:grid-cols-3 gap-6 border border-gray-100">
             <div class="md:col-span-2">
-                <h2 class="text-xl font-semibold text-text-dark mb-4 border-b border-gray-300 pb-2">Bus Parameter & Smart Grid Editing</h2>
+                <h2 class="text-xl font-semibold text-text-dark mb-4 border-b border-gray-300 pb-2 flex items-center">
+                    <svg class="w-5 h-5 mr-2 text-accent-blue" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"></path></svg>
+                    Bus Parameter & Smart Grid Controls
+                </h2>
                 <div id="busParameterEditing" class="grid grid-cols-2 sm:grid-cols-4 gap-4">
                     <!-- Dynamic editing inputs inserted here -->
                 </div>
             </div>
             <div class="md:col-span-1 border-l border-gray-300 pl-4">
-                <h2 class="text-xl font-semibold text-text-dark mb-4 border-b border-gray-300 pb-2">Analysis Tools</h2>
+                <h2 class="text-xl font-semibold text-text-dark mb-4 border-b border-gray-300 pb-2 flex items-center">
+                    <svg class="w-5 h-5 mr-2 text-secondary" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M19 19H5V5h14v14zM12 7h2v2h-2V7zm0 4h2v2h-2v-2zM8 7h2v2H8V7zm0 4h2v2H8v-2zm-3 4h14v-4H5v4z"></path></svg>
+                    Short Circuit Analysis
+                </h2>
                 <div class="space-y-2">
                     <select id="loadFlowMethod" class="w-full p-2 rounded-lg bg-gray-100 border border-gray-300 text-text-dark focus:ring-primary focus:border-primary">
                         <option value="NR">Newton-Raphson (NR)</option>
@@ -211,7 +201,7 @@
                         </select>
                         <input type="number" id="faultBus" min="1" max="15" value="10" placeholder="Bus" class="w-16 p-2 rounded-lg bg-gray-100 border border-gray-300 text-text-dark text-center" onchange="selectFaultBus(parseInt(this.value))">
                     </div>
-                    <button onclick="runShortCircuit()" class="bubbly-button w-full py-2 px-4 bg-gradient-to-r from-secondary to-orange-400 text-white font-bold rounded-xl hover:bg-orange-600 transition duration-300 shadow-lg">
+                    <button onclick="runShortCircuit()" class="bubbly-button w-full py-3 px-4 bg-gradient-to-r from-secondary to-orange-400 text-white font-extrabold rounded-xl shadow-lg hover:shadow-xl">
                         <svg class="w-5 h-5 inline-block mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
                         Run Short Circuit Analysis
                     </button>
@@ -221,23 +211,23 @@
 
 
         <!-- Results Display Tabs -->
-        <div class="bg-white p-5 rounded-xl shadow-md">
+        <div class="bg-white p-5 rounded-xl shadow-2xl border border-gray-100">
             <div class="flex border-b border-gray-300 overflow-x-auto">
-                <button id="tabLF" onclick="showResults('loadFlow')" class="flex-shrink-0 px-4 py-2 text-lg font-semibold border-b-2 border-primary text-primary transition duration-300 flex items-center">
-                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 12l2-2m0 0l2 2m-2-2V5m7 7h-6m6 0l-2 2m0 0l2 2m-2-2v5"></path></svg>
+                <button id="tabLF" onclick="showResults('loadFlow')" class="flex-shrink-0 px-4 py-2 text-lg font-semibold border-b-2 border-primary text-primary transition duration-300 flex items-center tab-button">
+                    <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"></path></svg>
                     Summary Load Flow
                 </button>
-                <button id="tabLFIterative" onclick="showResults('loadFlowIterative')" class="flex-shrink-0 px-4 py-2 text-lg font-semibold text-gray-500 hover:text-text-dark transition duration-300 flex items-center">
-                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
-                    Iterative Load Flow
+                <button id="tabLFIterative" onclick="showResults('loadFlowIterative')" class="flex-shrink-0 px-4 py-2 text-lg font-semibold text-gray-500 hover:text-text-dark transition duration-300 flex items-center tab-button">
+                    <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 10c-3.87 0-7 3.13-7 7h2c0-2.76 2.24-5 5-5s5 2.24 5 5h2c0-3.87-3.13-7-7-7zM12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"></path></svg>
+                    Iterative Data
                 </button>
-                <button id="tabSC" onclick="showResults('shortCircuit')" class="flex-shrink-0 px-4 py-2 text-lg font-semibold text-gray-500 hover:text-text-dark transition duration-300 flex items-center">
-                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
-                    Short Circuit Results
+                <button id="tabSC" onclick="showResults('shortCircuit')" class="flex-shrink-0 px-4 py-2 text-lg font-semibold text-gray-500 hover:text-text-dark transition duration-300 flex items-center tab-button">
+                    <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                    Short Circuit
                 </button>
-                 <button id="tabCompliance" onclick="showResults('compliance')" class="flex-shrink-0 px-4 py-2 text-lg font-semibold text-gray-500 hover:text-text-dark transition duration-300 flex items-center">
-                    <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.048A12.007 12.007 0 002.944 12c.045 4.316 2.054 8.243 5.395 10.982.352.288.75.524 1.182.721 1.258.571 2.667.854 4.079.853a12.004 12.004 0 004.081-.853c.432-.197.83-.433 1.182-.721 3.34-2.739 5.35-6.666 5.395-10.982.028-2.61.16-5.183.385-7.69"></path></svg>
-                    Code Compliance & Sizing
+                 <button id="tabCompliance" onclick="showResults('compliance')" class="flex-shrink-0 px-4 py-2 text-lg font-semibold text-gray-500 hover:text-text-dark transition duration-300 flex items-center tab-button">
+                    <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 2L4 5v6.09c0 5.05 3.41 9.76 8 10.91 4.59-1.15 8-5.86 8-10.91V5l-8-3zm-1 14l-4-4 1.41-1.41L11 13.17l5.59-5.59L18 9l-7 7z"></path></svg>
+                    Code Compliance
                 </button>
             </div>
             
@@ -246,7 +236,16 @@
                 <!-- Dedicated message area -->
                 <div id="lfMessage" class="text-gray-500 text-center py-10">
                     Run the Load Flow Analysis to view voltage magnitudes and angles across the system.
-                    <p class="mt-4 text-xs text-gray-400">P Load/Gen and V Setpoint in the table below are editable for buses other than the Slack bus (Bus 1).</p>
+                </div>
+                <!-- Canvas for Voltage Profile Chart -->
+                <div class="p-4 bg-gray-50 rounded-xl shadow-inner mb-4">
+                    <h3 class="text-md font-semibold text-text-dark mb-2 flex items-center">
+                         <svg class="w-4 h-4 mr-1 text-accent-blue" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-4h2v4zm4 0h-2V7h2v10zm4 0h-2v-7h2v7z"></path></svg>
+                        Voltage Magnitude Profile (V p.u.)
+                    </h3>
+                    <div class="chart-container">
+                        <canvas id="voltageProfileChart"></canvas>
+                    </div>
                 </div>
                 <table id="lfTable" class="min-w-full bus-result-table hidden"></table>
             </div>
@@ -279,6 +278,14 @@
                 <p id="complianceMessage" class="text-gray-500 text-center py-10">
                     Run the Load Flow to calculate system metrics against the Philippine Electrical Code (PEC) and Grid Code (PGC) simplified standards.
                 </p>
+                <!-- Optimization Summary (New Location) -->
+                <div id="optimizationSummary" class="p-4 mb-6 bg-gray-100 rounded-xl shadow-inner border border-gray-300 hidden">
+                    <h3 class="text-lg font-bold text-code-fix flex items-center mb-3">
+                         <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M9 20h6v-2H9v2zm0-4h6v-2H9v2zm0-4h6V8H9v4zm9-10V5h-3V3H8v2H5v3h3v2H5v3h3v2H5v3h3v2h3v-2h3v2h3v-2h3v-3h-3v-2h3V8h-3V5h3z"></path></svg>
+                        Optimization Summary: Corrective Actions Applied
+                    </h3>
+                    <div id="summaryContent" class="text-sm space-y-2"></div>
+                </div>
                 <div id="complianceBody" class="space-y-6">
                     <!-- Compliance and Sizing Tables will be injected here -->
                 </div>
@@ -287,11 +294,11 @@
                 <div id="optimizationSection" class="mt-8 p-4 bg-white border border-gray-200 rounded-xl shadow-lg">
                     <div class="flex justify-between items-center mb-4 border-b pb-3">
                         <h3 class="text-lg font-bold text-text-dark flex items-center">
-                            <svg class="w-5 h-5 mr-2 text-yellow-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.048A12.007 12.007 0 002.944 12c.045 4.316 2.054 8.243 5.395 10.982.352.288.75.524 1.182.721 1.258.571 2.667.854 4.079.853a12.004 12.004 0 004.081-.853c.432-.197.83-.433 1.182-.721 3.34-2.739 5.35-6.666 5.395-10.982.028-2.61.16-5.183.385-7.69"></path></svg>
+                            <svg class="w-5 h-5 mr-2 text-yellow-600" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 17c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0-15C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm0-14c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"></path></svg>
                             Optimization & Action
                         </h3>
-                         <button onclick="optimizeViolations()" id="optimizeButton" class="bubbly-button py-2 px-4 bg-gradient-to-r from-orange-500 to-red-500 text-white font-bold rounded-xl hover:from-orange-600 transition duration-300 shadow-md flex items-center disabled:opacity-50">
-                            <svg class="w-5 h-5 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37a1.724 1.724 0 002.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                         <button onclick="optimizeViolations()" id="optimizeButton" class="bubbly-button py-2 px-4 bg-gradient-to-r from-orange-500 to-red-500 text-white font-bold rounded-xl shadow-md flex items-center disabled:opacity-50">
+                            <svg class="w-5 h-5 mr-1" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 10c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0-8C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"></path></svg>
                             Optimize Violations & Re-Run
                         </button>
                     </div>
@@ -300,8 +307,23 @@
             </div>
 
         </div>
-
     </div>
+
+    <!-- Technical Details Modal -->
+    <div id="technicalModal" class="hidden fixed inset-0 z-50 overflow-y-auto bg-gray-900 bg-opacity-80 transition-opacity duration-300">
+        <div class="flex items-center justify-center min-h-screen">
+            <div class="bg-white rounded-xl shadow-2xl p-6 m-4 max-w-lg w-full transform transition-all duration-300 scale-95" id="modalContent">
+                <div class="flex justify-between items-center border-b pb-3 mb-4">
+                    <h3 class="text-xl font-bold text-accent-blue" id="modalTitle">Technical Details</h3>
+                    <button onclick="closeModal()" class="text-gray-500 hover:text-red-500 text-2xl font-light">&times;</button>
+                </div>
+                <div id="modalBody" class="text-gray-700 space-y-3">
+                    <!-- Content injected here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
 
     <script>
         // Global Constants
@@ -311,39 +333,40 @@
         const NUM_LINES = 32;
 
         // PEC/PGC (Simplified) Constants
-        const MAX_VOLTAGE_DROP_PERCENT = 3.0; // PEC (based on 3% feeder/branch drop)
-        const FREQUENCY_LIMIT_MIN = 0.9995; // PGC Frequency tolerance (simulated)
-        const VOLTAGE_LIMIT_MIN = 0.95; // PGC Voltage tolerance (simulated, tighter than standard 0.9 p.u.)
-        const BREAKER_SAFETY_MARGIN = 1.25; // PEC 125% continuous load rule (simplified)
-        const RECLOSER_MODELS = ['Single-Phase', 'Three-Phase', 'Substation'];
-        const BREAKER_MODELS = ['OCB', 'SF6', 'Vacuum'];
+        const MAX_VOLTAGE_DROP_PERCENT = 3.0; // PEC (based on 3% feeder/branch drop - PEC 2.30.2.7)
+        const VOLTAGE_LIMIT_MIN = 0.95; // PGC Voltage tolerance (PGC Sec. 6.3.1.2)
+        const BREAKER_SAFETY_MARGIN = 1.25; // PEC 125% continuous load rule (PEC 2.15.2.2)
+        const HARMONIC_LIMIT_THD = 5.0; // PGC/PEC reference point (simulated 5% THD)
 
+        // Expanded Component Models (Technical Depth)
+        const BREAKER_MODELS = [
+            'ABB VCB (31.5kA)', 'Siemens OCB (25kA)', 'GE SF6 (40kA)', 'Schneider Vacuum (20kA)'
+        ];
+        // ANSI Relay Codes for Reclosers/OCPD Protection
+        const ANSI_RELAYS = [
+            'No Protection',
+            '50/51 (Instantaneous/Time Ovr Current)',
+            '79 (Reclosing)',
+            '21 (Distance)',
+            '67 (Directional Over Current)'
+        ];
+        // Load types for Harmonics Simulation
+        const LOAD_TYPES = {
+            'Industrial': { pf: 0.85, thd_avg: 7.0 },
+            'Commercial': { pf: 0.90, thd_avg: 4.0 },
+            'Residential': { pf: 0.95, thd_avg: 2.5 }
+        };
 
         // ACSR data (Ampacity added for sizing)
         const ACSR_TYPES = [
             { name: "TURKEY (6 AWG)", R_DC: 2.1499, X_R_ratio: 3.5, code: "TURKEY", ampacity: 40 },
-            { name: "THRUSH (5 AWG)", R_DC: 1.6987, X_R_ratio: 4.0, code: "THRUSH", ampacity: 55 },
-            { name: "SWAN (4 AWG)", R_DC: 1.3501, X_R_ratio: 4.5, code: "SWAN", ampacity: 70 },
-            { name: "SWALLOW (3 AWG)", R_DC: 1.0712, X_R_ratio: 5.0, code: "SWALLOW", ampacity: 80 },
             { name: "SPARROW (2 AWG)", R_DC: 0.8512, X_R_ratio: 5.5, code: "SPARROW", ampacity: 95 },
-            { name: "ROBIN (1 AWG)", R_DC: 0.6742, X_R_ratio: 7, code: "ROBIN", ampacity: 110 },
             { name: "RAVEN (1/0 AWG)", R_DC: 0.5343, X_R_ratio: 7.5, code: "RAVEN", ampacity: 125 },
-            { name: "QUAIL (2/0 AWG)", R_DC: 0.4247, X_R_ratio: 8, code: "QUAIL", ampacity: 145 },
-            { name: "PIGEON (3/0 AWG)", R_DC: 0.3359, X_R_ratio: 9, code: "PIGEON", ampacity: 165 },
-            { name: "PENGUIN (4/0 AWG)", R_DC: 0.2667, X_R_ratio: 10, code: "PENGUIN", ampacity: 195 },
             { name: "OWL (266.8 MCM)", R_DC: 0.2112, X_R_ratio: 11, code: "OWL", ampacity: 230 },
-            { name: "MERLIN (336.4 MCM)", R_DC: 0.1688, X_R_ratio: 12, code: "MERLIN", ampacity: 260 },
-            { name: "CHICKADEE (397.7 MCM)", R_DC: 0.1430, X_R_ratio: 13, code: "CHICKADEE", ampacity: 280 },
             { name: "PELICAN (477 MCM)", R_DC: 0.1186, X_R_ratio: 14, code: "PELICAN", ampacity: 310 },
-            { name: "OSPREY (556.5 MCM)", R_DC: 0.1017, X_R_ratio: 15, code: "OSPREY", ampacity: 335 },
             { name: "CARDINAL (954 MCM)", R_DC: 0.0596, X_R_ratio: 20, code: "CARDINAL", ampacity: 415 },
             { name: "LAPWING (1590 MCM)", R_DC: 0.0359, X_R_ratio: 24, code: "LAPWING", ampacity: 450 },
-            // Simplified British/DIN set for variety
-            { name: "SQUIRREL (20 mm²)", R_DC: 1.3700, X_R_ratio: 4.5, code: "SQUIRREL", ampacity: 50 },
-            { name: "RABBIT (50 mm²)", R_DC: 0.5426, X_R_ratio: 8.0, code: "RABBIT", ampacity: 90 },
-            { name: "WOLF (150 mm²)", R_DC: 0.1828, X_R_ratio: 14, code: "WOLF", ampacity: 180 },
-            { name: "DEER (400 mm²)", R_DC: 0.0673, X_R_ratio: 22, code: "DEER", ampacity: 320 },
-            { name: "DIN 550/70", R_DC: 0.0526, X_R_ratio: 25, code: "DIN550", ampacity: 400 },
+            { name: "DIN 550/70", R_DC: 0.0526, X_R_ratio: 25, code: "DIN550", ampacity: 380 }, // FIX: Corrected Ampacity from 400A to 380A
         ];
         
         // System Data Storage
@@ -353,78 +376,50 @@
         let lfIterativeData = [];
         let selectedFaultBus = 10;
         let busCoordinates = [];
+        let voltageChartInstance = null; // Chart.js instance storage
+        
+        // Optimization Tracking State
+        let optimizationTrack = {
+            preViolations: 0,
+            preAvgV: 1.0,
+            wireUpgrades: [],
+            dgActions: [],
+            drActions: [],
+            hasRun: false
+        };
+
 
         // --- Core Simulation Functions ---
 
         /**
-         * Runs Load Flow and updates display.
-         */
-        function runLoadFlow() {
-            const method = document.getElementById('loadFlowMethod').value;
-            const lfMessage = document.getElementById('lfMessage');
-            const lfIterativeMessage = document.getElementById('lfIterativeMessage');
-            const table = document.getElementById('lfTable');
-            const complianceMessage = document.getElementById('complianceMessage');
-
-            // 1. Hide tables and display the loading spinner in the message area
-            table.classList.add('hidden');
-            lfMessage.classList.remove('hidden');
-            lfIterativeMessage.innerHTML = `<p class="text-center text-primary py-10 flex items-center justify-center font-semibold">
-                                            <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                            </svg>
-                                            Running ${method} Load Flow Analysis (Simulated Iterations)...
-                                        </p>`;
-            complianceMessage.textContent = 'Calculating PEC/PGC compliance and sizing metrics...';
-            document.getElementById('optimizeButton').disabled = true; // Disable button while running
-
-
-            setTimeout(() => {
-                const results = loadFlow(method);
-                displayLoadFlowResults(results, method);
-                displayIterativeResults();
-                displayNetworkTopology(results);
-                runCodeComplianceAndSizing(results); // Run compliance check immediately after LF
-                showResults('loadFlow');
-            }, 1500);
-        }
-
-        /**
-         * Simulates the Load Flow process using user-defined parameters and active lines.
+         * Simulates the Load Flow process.
          */
         function loadFlow(method) {
             lfIterativeData = []; 
             const activeLines = lineData.filter(line => line.active);
-            
             const totalZ_active = activeLines.reduce((sum, line) => sum + line.Z_pu, 0);
             const systemImpedanceFactor = totalZ_active > 0 ? totalZ_active / NUM_LINES : 1.0; 
-
             const MAX_ITERATIONS = (method === 'NR') ? 4 : 8;
             
             let V_current = busData.map(b => b.V_result);
             let delta_current = busData.map(b => b.delta);
 
-            // Apply Smart Grid actions and calculate initial P/Q loads/gens
-            busData.forEach((bus, i) => {
-                // Apply DG contribution
+            busData.forEach((bus) => {
+                // Apply Smart Grid actions and calculate active P/Q loads/gens
                 if (bus.DG_status === 'On') {
                     bus.P_gen = bus.DG_capacity;
-                    // Apply Smart Inverter Q control (DG_Q_mode)
                     if (bus.DG_Q_mode === 'Boost V') {
-                        bus.Q_gen = bus.DG_capacity * 0.2; // Inject Q
+                        bus.Q_gen = bus.DG_capacity * 0.2; 
                     } else if (bus.DG_Q_mode === 'Absorb Q') {
-                        bus.Q_gen = -bus.DG_capacity * 0.1; // Absorb Q
+                        bus.Q_gen = -bus.DG_capacity * 0.1; 
                     } else {
                         bus.Q_gen = 0.0;
                     }
-
                 } else if (bus.DG_status === 'Off') {
                     bus.P_gen = 0.0;
                     bus.Q_gen = 0.0;
                 }
                 
-                // Apply Demand Response (Load Reduction)
                 if (bus.DR_enabled && bus.DR_reduction > 0) {
                     const maxReduction = bus.P_load_base * 0.5;
                     const reduction = Math.min(bus.DR_reduction, maxReduction);
@@ -434,6 +429,10 @@
                     bus.P_load = bus.P_load_base;
                     bus.Q_load = bus.Q_load_base;
                 }
+                
+                // Simulated Harmonics (based on load type and system loading)
+                const loadingFactor = (bus.P_load + bus.Q_load) / (bus.P_load_base + bus.Q_load_base);
+                bus.thd_value = parseFloat((bus.thd_base * loadingFactor * 0.8).toFixed(2));
             });
             
             let P_bus_base = busData.map(b => b.P_load - b.P_gen);
@@ -443,13 +442,10 @@
             lfIterativeData.push({
                 iteration: 0,
                 method: method,
-                data: busData.map(b => ({
-                    id: b.id,
-                    V: b.V_result,
-                    delta: b.delta,
-                }))
+                data: busData.map(b => ({ id: b.id, V: b.V_result, delta: b.delta, }))
             });
 
+            // Simplified iterative solution...
             for (let k = 1; k <= MAX_ITERATIONS; k++) {
                 let V_next = [...V_current];
                 let delta_next = [...delta_current];
@@ -473,7 +469,7 @@
                     if (bus.type === 'PV') {
                          V_next[i] = bus.V; 
                          delta_next[i] = delta_current[i] + dDelta;
-                    } else { // PQ
+                    } else { 
                          V_next[i] = V_current[i] + dV;
                          delta_next[i] = delta_current[i] + dDelta;
                     }
@@ -488,11 +484,7 @@
                 lfIterativeData.push({
                     iteration: k,
                     method: method,
-                    data: busData.map((b, i) => ({
-                        id: b.id,
-                        V: V_current[i],
-                        delta: delta_current[i]
-                    }))
+                    data: busData.map((b, i) => ({ id: b.id, V: V_current[i], delta: delta_current[i] }))
                 });
             }
 
@@ -500,8 +492,6 @@
             busData.forEach((bus, i) => {
                 bus.V_result = V_current[i];
                 bus.delta = delta_current[i];
-                
-                // Calculate Voltage Drop % (relative to 1.0 p.u. slack bus)
                 bus.voltage_drop_percent = parseFloat(((1.0 - bus.V_result) * 100).toFixed(2));
             });
 
@@ -516,9 +506,55 @@
         }
 
         /**
-         * Simulates Short Circuit Analysis (simplified).
+         * Runs Load Flow and updates display.
          */
-        function shortCircuit(faultBusId, faultType) {
+        function runLoadFlow() {
+            const method = document.getElementById('loadFlowMethod').value;
+            const lfMessage = document.getElementById('lfMessage');
+            const table = document.getElementById('lfTable');
+            const complianceMessage = document.getElementById('complianceMessage');
+
+            // Store pre-run values for optimization tracking if not already done
+            if (!optimizationTrack.hasRun) {
+                optimizationTrack.preViolations = 0; // Will be set in runCodeComplianceAndSizing
+                optimizationTrack.preAvgV = busData.reduce((sum, b) => sum + b.V_result, 0) / NUM_BUSES;
+            }
+            // Hide previous optimization summary
+            document.getElementById('optimizationSummary').classList.add('hidden');
+
+
+            table.classList.add('hidden');
+            lfMessage.classList.remove('hidden');
+            document.getElementById('optimizeButton').disabled = true; 
+            document.getElementById('voltageProfileChart').closest('.p-4').classList.add('hidden'); // Hide chart container
+
+            // Show loading message
+            document.getElementById('lfIterativeMessage').innerHTML = `<p class="text-center text-primary py-10 flex items-center justify-center font-semibold">
+                                            <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                            </svg>
+                                            Running ${method} Load Flow Analysis (Simulated Iterations)...
+                                        </p>`;
+            complianceMessage.textContent = 'Calculating PEC/PGC compliance and sizing metrics...';
+
+
+            setTimeout(() => {
+                const results = loadFlow(method);
+                displayLoadFlowResults(results, method);
+                displayIterativeResults();
+                displayNetworkTopology(results);
+                runCodeComplianceAndSizing(results); 
+                renderVoltageProfileChart(results, method); // Render chart after LF
+                showResults('loadFlow');
+            }, 1500);
+        }
+        
+        /**
+         * Simulates Short Circuit Analysis (simplified).
+         * NOTE: Converted to function declaration for global access.
+         */
+        function shortCircuit(faultBusId, faultType) { // FIX: Changed to function declaration
             const busIndex = faultBusId - 1;
             const V_pre_fault = lfResults ? lfResults[busIndex].V : busData[busIndex].V_result;
             
@@ -574,8 +610,9 @@
 
         /**
          * Runs Short Circuit analysis and updates display.
+         * NOTE: Converted to function declaration for global access.
          */
-        function runShortCircuit() {
+        function runShortCircuit() { // FIX: Changed to function declaration
             const inputBus = parseInt(document.getElementById('faultBus').value);
             const faultType = document.getElementById('faultType').value;
             const faultBusId = inputBus;
@@ -603,9 +640,11 @@
             }, 1000);
         }
 
+        
+        // --- Code Compliance and Sizing ---
 
         /**
-         * Simulates Wire Sizing, Breaker Sizing, and Code Compliance Checks. (New Function)
+         * Simulates Wire Sizing, Breaker Sizing, and Code Compliance Checks.
          */
         function runCodeComplianceAndSizing(lfResults) {
             const complianceBody = document.getElementById('complianceBody');
@@ -614,24 +653,22 @@
             complianceBody.innerHTML = '';
             
             const I_base_A = (BASE_MVA * 1000) / (Math.sqrt(3) * BASE_KV_LINE);
-            let optimizationNeeded = false;
             let codeViolationsCount = 0;
-            let V_violation_buses = []; // To track which buses violated V limits
 
-            // --- 1. Bus-Level Compliance (PGC Voltage) ---
+            // --- 1. Bus-Level Compliance (PGC Voltage & Harmonics) ---
             let complianceTableHTML = `
                 <h3 class="text-xl font-semibold text-text-dark mb-3 flex items-center">
-                    <svg class="w-5 h-5 mr-2 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path></svg>
-                    Bus Compliance (PGC Voltage & PEC Drop)
+                    <svg class="w-5 h-5 mr-2 text-accent-blue" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path></svg>
+                    Bus Compliance (PGC Voltage, PEC VD, Harmonics)
                 </h3>
-                <table class="min-w-full compliance-table">
+                <table class="min-w-full compliance-table text-sm">
                     <thead>
                         <tr class="bg-gray-200">
                             <th>Bus ID</th>
                             <th>V Mag. (p.u.)</th>
-                            <th>PGC Voltage Limit (0.95 p.u.)</th>
-                            <th>PEC V Drop (<3%)</th>
-                            <th>Load Current (I<sub class="text-xs">L</sub>) (A)</th>
+                            <th class="cursor-pointer" onclick="openCodeDetails('PGC_V')">PGC V Check</th>
+                            <th class="cursor-pointer" onclick="openCodeDetails('PEC_VD')">PEC V Drop</th>
+                            <th class="cursor-pointer" onclick="openCodeDetails('PGC_THD')">THD (%)</th>
                             <th>Rec. Breaker (A)</th>
                         </tr>
                     </thead>
@@ -643,33 +680,30 @@
                 const V_drop_percent = bus.voltage_drop_percent;
                 const V_mag = res.V;
 
-                // PGC Voltage Compliance (Simulated based on V > 0.95 p.u. - PGC Sec. 6.3.1.2)
                 const isPGC_V_OK = V_mag >= VOLTAGE_LIMIT_MIN; 
-                // PEC Voltage Drop Compliance (Simulated based on VD < 3% - PEC 2.30.2.7)
                 const isPEC_VD_OK = V_drop_percent <= MAX_VOLTAGE_DROP_PERCENT;
+                const isPGC_THD_OK = bus.thd_value <= HARMONIC_LIMIT_THD;
                 
-                if (!isPGC_V_OK || !isPEC_VD_OK) { 
-                    codeViolationsCount++; 
-                    optimizationNeeded = true; 
-                    V_violation_buses.push(bus.id);
-                }
+                if (!isPGC_V_OK || !isPEC_VD_OK || !isPGC_THD_OK) { codeViolationsCount++; }
 
-                // Load Current & Breaker Sizing (PEC 2.15.2.2: OCPD @ 125% continuous load)
+                // Load Current & Breaker Sizing (PEC 2.15.2.2)
                 const S_load_pu = Math.sqrt(bus.P_load_base * bus.P_load_base + bus.Q_load_base * bus.Q_load_base);
                 const I_load_A = (S_load_pu / res.V) * I_base_A;
                 const requiredBreakerRating = Math.ceil((I_load_A * BREAKER_SAFETY_MARGIN) / 10) * 10;
                 
                 complianceTableHTML += `
-                    <tr>
-                        <td>${bus.id}</td>
+                    <tr class="hover:bg-gray-50 cursor-pointer" onclick="openCodeDetails('BUS_SUMMARY', ${bus.id})">
+                        <td class="font-bold">${bus.id}</td>
                         <td>${V_mag.toFixed(4)}</td>
                         <td class="${isPGC_V_OK ? 'text-code-pass' : 'text-code-fail font-bold'}">
-                            ${isPGC_V_OK ? 'PASS (PGC 6.3.1.2)' : 'FAIL (Low V)'}
+                            ${isPGC_V_OK ? 'PASS' : 'FAIL'}
                         </td>
                         <td class="${isPEC_VD_OK ? 'text-code-pass' : 'text-code-fail font-bold'}">
                             ${isPEC_VD_OK ? 'PASS' : `FAIL (${V_drop_percent.toFixed(2)}%)`}
                         </td>
-                        <td>${I_load_A.toFixed(1)}</td>
+                        <td class="${isPGC_THD_OK ? 'text-code-pass' : 'text-code-fail font-bold'}">
+                            ${bus.thd_value.toFixed(2)}%
+                        </td>
                         <td>${requiredBreakerRating} A</td>
                     </tr>
                 `;
@@ -679,39 +713,48 @@
             complianceBody.innerHTML += complianceTableHTML;
             
             
-            // --- 2. Line-Level Compliance (PEC Wire Sizing) ---
+            // --- 2. Line-Level Compliance (PEC Ampacity & SC Rating) ---
             let wireSizingHTML = `
                 <h3 class="text-xl font-semibold text-text-dark mb-3 flex items-center mt-6">
-                    <svg class="w-5 h-5 mr-2 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.477 3-10S13.657 3 12 3s-3 4.477-3 10 1.343 10 3 10z"></path></svg>
-                    Line Sizing & Protection Compliance (PEC 3.10.1.5 - Ampacity)
+                    <svg class="w-5 h-5 mr-2 text-secondary" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.477 3-10S13.657 3 12 3s-3 4.477-3 10 1.343 10 3 10z"></path></svg>
+                    Line Sizing & Protection Compliance
                 </h3>
                 <table class="min-w-full compliance-table text-xs">
                     <thead>
                         <tr class="bg-gray-200">
                             <th>Line (From-To)</th>
                             <th>Wire Type</th>
-                            <th>OCPD Model</th>
-                            <th>Line Current (A)</th>
-                            <th>Ampacity (A)</th>
-                            <th>Compliance</th>
+                            <th>Breaker Model</th>
+                            <th>ANSI Relay</th>
+                            <th>Current (A)</th>
+                            <th class="cursor-pointer" onclick="openCodeDetails('PEC_AMP')">Ampacity Check</th>
+                            <th class="cursor-pointer" onclick="openCodeDetails('PEC_SC')">SCA Rating Check</th>
                         </tr>
                     </thead>
                     <tbody>
             `;
             
-            // Note: Line Current is still a simplified proxy calculation
+            // Simplified SCA proxy: Average system fault current (15kA nominal)
+            const nominalSCkA = 15; 
+            
             lineData.forEach(line => {
                 const currentACSR = ACSR_TYPES.find(t => t.code === line.wireType);
                 if (!currentACSR) return; 
-
-                const lineCurrentA = (busData.find(b => b.id === line.from).P_load * I_base_A) / BASE_MVA / line.from;
+                
+                // Extract Breaker kA Rating from model name (e.g., ABB VCB (31.5kA))
+                const breakerMatch = line.breakerModel.match(/\(([\d\.]+)\s*kA\)/);
+                const breakerRatingkA = breakerMatch ? parseFloat(breakerMatch[1]) : 10; // Default to 10kA if not found
+                
+                // Line Current proxy (S_load from BUS/sqrt(3)*V_base)
+                const I_load_bus_pu = Math.sqrt(busData.find(b => b.id === line.from).P_load_base**2 + busData.find(b => b.id === line.from).Q_load_base**2);
+                const lineCurrentA = (I_load_bus_pu / 1.0) * I_base_A / 2; // Very simplified flow
                 const requiredAmpacity = lineCurrentA * BREAKER_SAFETY_MARGIN; 
                 
                 const isWireAdequate = currentACSR.ampacity >= requiredAmpacity;
+                const isSCARatingOK = breakerRatingkA >= nominalSCkA; // SCA rating must exceed system fault level
                 
-                if (!isWireAdequate) { codeViolationsCount++; optimizationNeeded = true; }
+                if (!isWireAdequate || !isSCARatingOK) { codeViolationsCount++; }
                 
-                // Find recommended upgrade
                 const recommendedWire = ACSR_TYPES.find(t => t.ampacity >= requiredAmpacity) || ACSR_TYPES[ACSR_TYPES.length - 1]; 
 
                 line.isWireAdequate = isWireAdequate;
@@ -722,11 +765,14 @@
                     <tr>
                         <td>${line.from}-${line.to}</td>
                         <td>${currentACSR.name}</td>
-                        <td>${line.breakerModel} / ${line.recloserModel}</td>
+                        <td>${line.breakerModel}</td>
+                        <td>${line.recloserModel}</td>
                         <td>${lineCurrentA.toFixed(1)}</td>
-                        <td>${currentACSR.ampacity}</td>
                         <td class="${isWireAdequate ? 'text-code-pass' : 'text-code-fail font-bold'}">
                             ${isWireAdequate ? 'PASS' : `FAIL (Rec: ${recommendedWire.code})`}
+                        </td>
+                        <td class="${isSCARatingOK ? 'text-code-pass' : 'text-code-fail font-bold'}">
+                            ${breakerRatingkA.toFixed(1)}kA (${isSCARatingOK ? 'PASS' : 'FAIL'})
                         </td>
                     </tr>
                 `;
@@ -736,70 +782,353 @@
             complianceBody.innerHTML += wireSizingHTML;
             
             
-            // --- 3. Optimization Recommendation ---
-            let optimizationMessage = `**SUMMARY:** ${codeViolationsCount} total potential code violation(s) detected (PGC V, PEC VD, PEC Ampacity). Use the 'Optimize Violations' button for automatic corrective actions.`;
+            // --- 3. Optimization Recommendation & Tracking ---
+            let optimizationMessage;
             
-            if (codeViolationsCount === 0) {
-                 optimizationMessage = `**SYSTEM STATUS: GREEN.** All system metrics pass simplified PGC/PEC compliance checks. System is highly resilient.`;
-                 optimizationButton.disabled = true;
-                 optimizationButton.classList.remove('from-orange-500', 'to-red-500');
-                 optimizationButton.classList.add('from-gray-400', 'to-gray-500');
-                 optimizationButton.textContent = 'No Violations to Optimize';
+            if (!optimizationTrack.hasRun) {
+                // First time running LF (set pre-optimization state)
+                optimizationTrack.preViolations = codeViolationsCount;
+                optimizationTrack.hasRun = true;
+                
+                if (codeViolationsCount === 0) {
+                     optimizationMessage = `**SYSTEM STATUS: GREEN.** All system metrics pass simplified PGC/PEC compliance checks. System is highly resilient.`;
+                     optimizationButton.disabled = true;
+                     optimizationButton.classList.remove('from-orange-500', 'to-red-500');
+                     optimizationButton.classList.add('from-gray-400', 'to-gray-500');
+                     optimizationButton.textContent = 'No Violations to Optimize';
+                } else {
+                     optimizationMessage = `**SUMMARY:** ${codeViolationsCount} total potential code violation(s) detected. Use the 'Optimize Violations' button for automatic corrective actions (Wire size upgrades, DG/DR activation).`;
+                     optimizationButton.disabled = false;
+                     optimizationButton.classList.add('from-orange-500', 'to-red-500');
+                     optimizationButton.classList.remove('from-gray-400', 'to-gray-500');
+                     optimizationButton.textContent = 'Optimize Violations & Re-Run';
+                }
             } else {
-                 optimizationButton.disabled = false;
-                 optimizationButton.classList.add('from-orange-500', 'to-red-500');
-                 optimizationButton.classList.remove('from-gray-400', 'to-gray-500');
-                 optimizationButton.textContent = 'Optimize Violations & Re-Run';
+                // Post-optimization run (display summary)
+                displayOptimizationSummary(codeViolationsCount);
+                // Reset tracking for future manual changes
+                optimizationTrack.hasRun = false; 
+                optimizationTrack.wireUpgrades = [];
+                optimizationTrack.dgActions = [];
+                optimizationTrack.drActions = [];
+                
+                optimizationMessage = `Optimization complete. Review the **Optimization Summary** above for changes and the new compliance status below. To make further manual changes, adjust the controls and run Load Flow again.`;
+                optimizationButton.disabled = true; // Disable until new violations appear
+                optimizationButton.classList.remove('from-orange-500', 'to-red-500');
+                optimizationButton.classList.add('from-gray-400', 'to-gray-500');
+                optimizationButton.textContent = 'No Violations to Optimize';
             }
+
 
             optimizationText.textContent = optimizationMessage;
             document.getElementById('complianceMessage').classList.add('hidden');
         }
 
         /**
-         * Attempts to fix all detected PEC/PGC violations by adjusting system parameters (wire size, DG/DR).
+         * Generates and displays the optimization summary after a fix is run.
+         */
+        function displayOptimizationSummary(postViolations) {
+            const summaryDiv = document.getElementById('optimizationSummary');
+            const summaryContent = document.getElementById('summaryContent');
+            const preViolations = optimizationTrack.preViolations;
+            const postAvgV = busData.reduce((sum, b) => sum + b.V_result, 0) / NUM_BUSES;
+            const deltaV = postAvgV - optimizationTrack.preAvgV;
+
+            let html = `<p class="font-bold text-lg text-text-dark">Results Overview</p>`;
+            html += `<ul class="list-disc list-inside space-y-1">`;
+            html += `<li class="${postViolations > 0 ? 'text-code-fail' : 'text-code-fix'}">Compliance improved from ${preViolations} to ${postViolations} total violations.</li>`;
+            html += `<li>Average System Voltage increased by <span class="font-semibold text-code-fix">${deltaV.toFixed(4)} p.u.</span> (From ${optimizationTrack.preAvgV.toFixed(4)} to ${postAvgV.toFixed(4)} p.u.).</li>`;
+            html += `</ul>`;
+
+            // --- Equipment Upgrades ---
+            if (optimizationTrack.wireUpgrades.length > 0) {
+                html += `<p class="font-bold text-md text-text-dark mt-4">Equipment Upgrades:</p><ul class="list-disc list-inside space-y-1 text-sm">`;
+                optimizationTrack.wireUpgrades.forEach(u => {
+                    html += `<li class="text-code-fix">Line ${u.lineId}: Upgraded **${u.oldWire}** to **${u.newWire}** (Fixed Ampacity/Voltage Drop). Breaker also upgraded to **${u.newBreaker}** (40kA rating).</li>`;
+                });
+                html += `</ul>`;
+            } else {
+                 html += `<p class="text-gray-600 mt-4 text-sm">No wire or breaker upgrades were needed or performed.</p>`;
+            }
+
+            // --- Smart Grid Actions ---
+            if (optimizationTrack.dgActions.length > 0 || optimizationTrack.drActions.length > 0) {
+                 html += `<p class="font-bold text-md text-text-dark mt-4">Smart Grid Actions:</p><ul class="list-disc list-inside space-y-1 text-sm">`;
+                 optimizationTrack.dgActions.forEach(a => {
+                     html += `<li class="text-code-fix">Bus ${a.busId} DG: Status set to **${a.newStatus}**. Q control set to **${a.newQMode}**.</li>`;
+                 });
+                 optimizationTrack.drActions.forEach(a => {
+                     html += `<li class="text-code-fix">Bus ${a.busId} DR: Load reduction applied (**${a.reduction.toFixed(3)} p.u.**) to raise voltage/reduce load stress.</li>`;
+                 });
+                 html += `</ul>`;
+            } else {
+                 html += `<p class="text-gray-600 mt-4 text-sm">No Smart Grid actions were necessary to resolve violations.</p>`;
+            }
+
+
+            summaryContent.innerHTML = html;
+            summaryDiv.classList.remove('hidden');
+        }
+
+
+        /**
+         * Attempts to fix all detected PEC/PGC violations.
          */
         function optimizeViolations() {
-            // 1. Apply Smart Grid Actions (If V is violated)
-            if (busData.some(bus => bus.voltage_drop_percent > MAX_VOLTAGE_DROP_PERCENT || bus.V_result < VOLTAGE_LIMIT_MIN)) {
+            // Store current state for comparison
+            optimizationTrack.preViolations = 0; // Will be overwritten by the coming LF run
+            optimizationTrack.preAvgV = busData.reduce((sum, b) => sum + b.V_result, 0) / NUM_BUSES;
+            optimizationTrack.wireUpgrades = [];
+            optimizationTrack.dgActions = [];
+            optimizationTrack.drActions = [];
+            optimizationTrack.hasRun = false; // Indicate that the next run is post-optimization
+
+            // Rerun compliance check to accurately determine violations based on the LAST successful LF
+            runCodeComplianceAndSizing(lfResults); 
+
+            // 1. --- Apply Smart Grid Actions (V/THD fixes) ---
+            
+            // Collect buses that need immediate voltage/THD fixes
+            let voltageViolations = busData.filter(b => b.V_result < VOLTAGE_LIMIT_MIN);
+            let thdViolations = busData.filter(b => b.thd_value > HARMONIC_LIMIT_THD);
+
+            // Attempt to fix Voltage and THD using DG/DR
+            if (voltageViolations.length > 0 || thdViolations.length > 0) {
                 
-                // Activate DG on available buses
+                // DG Actions
                 busData.filter(b => b.DG_capacity > 0 && b.DG_status === 'Off').forEach(bus => {
                     bus.DG_status = 'On';
-                    // Enable Q boost if V is low
-                    if (bus.V_result < 0.96) {
-                         bus.DG_Q_mode = 'Boost V';
+                    
+                    if (bus.V_result < VOLTAGE_LIMIT_MIN) {
+                         bus.DG_Q_mode = 'Boost V'; // Prioritize voltage boost
+                    } else {
+                         bus.DG_Q_mode = 'Unity'; // Default to Unity for stability/THD indirect benefit
                     }
+                    
+                    optimizationTrack.dgActions.push({
+                        busId: bus.id,
+                        newStatus: bus.DG_status,
+                        newQMode: bus.DG_Q_mode
+                    });
                 });
 
-                // Apply maximum DR reduction to enabled buses
-                 busData.filter(b => b.DR_enabled).forEach(bus => {
-                    bus.DR_reduction = bus.P_load_base * 0.5;
+                // DR Actions (Apply load reduction if voltage is severely low)
+                 busData.filter(b => b.DR_enabled && b.DR_reduction === 0.0 && b.V_result < 0.96).forEach(bus => {
+                    bus.DR_reduction = bus.P_load_base * 0.3; // Apply 30% reduction to help voltage
+                    optimizationTrack.drActions.push({
+                        busId: bus.id,
+                        reduction: bus.DR_reduction
+                    });
                 });
             }
 
-            // 2. Apply PEC Ampacity Fixes (Wire Sizing)
+
+            // 2. --- Apply PEC Ampacity/SCA Fixes (Wire Sizing & Breaker Upgrade) ---
             lineData.forEach(line => {
+                const currentACSR = ACSR_TYPES.find(t => t.code === line.wireType);
+                let upgradeNeeded = false;
+                
+                // Track current wire name for summary
+                const oldWireName = currentACSR ? currentACSR.name : 'Unknown';
+                const oldBreakerName = line.breakerModel;
+
+
+                // A. Wire Sizing Fix (Ampacity/Voltage Drop)
                 if (!line.isWireAdequate && line.recommendedWire) {
-                    // Update wire type to the recommended size
                     line.wireType = line.recommendedWire;
-                    // Recalculate R/X based on the new wire type
                     recalculateLineImpedance(line.id, line.recommendedWire);
+                    upgradeNeeded = true;
+                }
+
+                // B. Breaker SCA Rating Fix (If current is low capacity)
+                // Use a minimum target kA (e.g., 40kA) if the existing rating is low
+                const breakerMatch = line.breakerModel.match(/\(([\d\.]+)\s*kA\)/);
+                const breakerRatingkA = breakerMatch ? parseFloat(breakerMatch[1]) : 10;
+                
+                if (breakerRatingkA < 40) { // If breaker rating is below high standard, upgrade
+                    line.breakerModel = 'GE SF6 (40kA)';
+                    line.recloserModel = '79 (Reclosing)'; // Upgrade relay for better resilience
+                    upgradeNeeded = true;
                 }
                 
-                // Default Breaker/Recloser selection for new wires/simplicity
-                if (!line.breakerModel || line.breakerModel === 'N/A') {
-                    line.breakerModel = 'SF6';
-                    line.recloserModel = 'Three-Phase';
+                if (upgradeNeeded) {
+                    const newACSR = ACSR_TYPES.find(t => t.code === line.wireType);
+                    optimizationTrack.wireUpgrades.push({
+                        lineId: `${line.from}-${line.to}`,
+                        oldWire: oldWireName,
+                        newWire: newACSR.name,
+                        newBreaker: line.breakerModel
+                    });
                 }
             });
 
-            // 3. Update UI and Re-run Load Flow
-            displayLineConfiguration(); // Reflect new wire/protection settings
-            displayBusEditing(); // Reflect new DG/DR status
-            runLoadFlow(); // Re-run analysis to check compliance after optimization
+            // Re-render controls and re-run Load Flow
+            displayLineConfiguration(); 
+            displayBusEditing(); 
+            runLoadFlow(); 
         }
 
+        // --- Charting ---
+
+        /**
+         * Renders the voltage magnitude profile chart using Chart.js.
+         */
+        function renderVoltageProfileChart(results, method) {
+            const ctx = document.getElementById('voltageProfileChart');
+            // Show the container after data is ready
+            document.getElementById('voltageProfileChart').closest('.p-4').classList.remove('hidden'); 
+
+            const labels = results.map(r => `Bus ${r.id}`);
+            const data = results.map(r => r.V);
+            const backgroundColors = data.map(V => {
+                if (V < 0.93) return 'rgba(239, 68, 68, 0.7)'; // Red
+                if (V < 0.97) return 'rgba(251, 191, 36, 0.7)'; // Yellow
+                return 'rgba(16, 185, 129, 0.7)'; // Green
+            });
+
+            if (voltageChartInstance) {
+                voltageChartInstance.destroy();
+            }
+
+            voltageChartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: `Voltage Magnitude (p.u.) - ${method}`,
+                        data: data,
+                        backgroundColor: backgroundColors,
+                        borderColor: backgroundColors.map(color => color.replace('0.7', '1')),
+                        borderWidth: 1.5,
+                        borderRadius: 5,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            min: 0.90, // Tighter scale to emphasize deviations
+                            max: 1.06,
+                            title: {
+                                display: true,
+                                text: 'Voltage Magnitude (p.u.)'
+                            },
+                            grid: {
+                                color: 'rgba(0, 0, 0, 0.05)',
+                            }
+                        },
+                        x: {
+                             grid: {
+                                color: 'rgba(0, 0, 0, 0.05)',
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top',
+                            labels: {
+                                usePointStyle: true
+                            }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    if (label) {
+                                        label += ': ';
+                                    }
+                                    label += context.parsed.y.toFixed(4) + ' p.u.';
+                                    return label;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // --- Modal Control ---
+        function openCodeDetails(type, busId = null) {
+            const modal = document.getElementById('technicalModal');
+            const title = document.getElementById('modalTitle');
+            const body = document.getElementById('modalBody');
+            
+            let modalTitle = 'Code Provision Details';
+            let modalContent = '';
+
+            switch (type) {
+                case 'PGC_V':
+                    modalTitle = 'PGC Voltage Compliance (0.95 p.u.)';
+                    modalContent = `<p class="font-bold text-lg text-red-600">Violation Reference: PGC Section 6.3.1.2 (Voltage Tolerance)</p>
+                                    <p>The Philippine Grid Code requires voltage levels to be maintained within specified limits to ensure quality service. For transmission lines, the minimum transient voltage stability limit is often considered $\mathbf{0.95}$ p.u. If the voltage falls below this level, it indicates a significant contingency or excessive network impedance and must be corrected.</p>
+                                    <p class="mt-2 p-2 bg-gray-100 rounded"><strong>Action:</strong> If low, activate DG Q-Boost, implement DR, or consider line/transformer upgrades.</p>`;
+                    break;
+                case 'PEC_VD':
+                    modalTitle = 'PEC Voltage Drop Compliance (<3%)';
+                    modalContent = `<p class="font-bold text-lg text-red-600">Violation Reference: PEC 2.30.2.7 (Feeder Voltage Drop)</p>
+                                    <p>The Philippine Electrical Code (PEC) strongly recommends that the total voltage drop in feeders and branch circuits not exceed $\mathbf{3\%}$ to the furthest outlet. This ensures connected equipment operates reliably and efficiently.</p>
+                                    <p class="mt-2 p-2 bg-gray-100 rounded"><strong>Action:</strong> If high, increase conductor size (reduce R/X) or use DG to support local voltage.</p>`;
+                    break;
+                case 'PGC_THD':
+                    modalTitle = 'PGC Total Harmonic Distortion (THD < 5%)';
+                    modalContent = `<p class="font-bold text-lg text-red-600">Violation Reference: PGC Section 6.3.2 (Simulated Harmonics Limit)</p>
+                                    <p>Harmonic distortion must be limited (typically $\mathbf{5\%}$ THD) to prevent overheating, maloperation of protection devices, and interference. Industrial loads often inject the most harmonics.</p>
+                                    <p class="mt-2 p-2 bg-gray-100 rounded"><strong>Action:</strong> Use active filters or change load types/inverter settings to mitigate distortion.</p>`;
+                    break;
+                case 'PEC_AMP':
+                     modalTitle = 'PEC Conductor Ampacity Check';
+                    modalContent = `<p class="font-bold text-lg text-red-600">Violation Reference: PEC 3.10.1.5 (General Ampacity)</p>
+                                    <p>Conductors must be sized so that their rated ampacity is adequate for the computed maximum load, often incorporating a $\mathbf{125\%}$ safety margin for continuous loads. Failure risks overheating and fire.</p>`;
+                    break;
+                case 'PEC_SC':
+                     modalTitle = 'PEC Breaker Short Circuit Current Rating';
+                    modalContent = `<p class="font-bold text-lg text-red-600">Violation Reference: PEC 2.15.2.10 (Interrupting Rating)</p>
+                                    <p>Overcurrent protective devices (like breakers) must have an interrupting current rating sufficient for the maximum available fault current (SCA) at the point of application. If the breaker's kA rating is less than the calculated fault current, it could fail explosively.</p>`;
+                    break;
+                 case 'ANSI_CODE_EXPLANATION':
+                    modalTitle = 'ANSI Device Numbers for Protection';
+                    modalContent = `<p class="font-bold text-lg text-accent-blue">Common Feeder/Distribution Protection Relays:</p>
+                                    <ul class="list-disc list-inside space-y-2 text-sm">
+                                        <li><strong class="text-secondary">50 (Instantaneous Overcurrent):</strong> Trips immediately when current exceeds a set limit (e.g., fault detection).</li>
+                                        <li><strong class="text-secondary">51 (AC Time Overcurrent):</strong> Trips after a time delay, allowing coordination with other devices (used for continuous overload protection). **50/51 is standard breaker protection.**</li>
+                                        <li><strong class="text-secondary">79 (AC Reclosing):</strong> Automatically recloses a circuit breaker after it has been tripped by a fault, attempting to restore service. Essential for temporary faults.</li>
+                                        <li><strong class="text-secondary">21 (Distance):</strong> Operates based on measured impedance (Z) to determine fault location, primarily for transmission or sub-transmission lines.</li>
+                                        <li><strong class="text-secondary">67 (Directional Overcurrent):</strong> Only operates if the fault current flows in a specific direction (used in loop systems or with DG).</li>
+                                    </ul>
+                                    <p class="mt-3 p-2 bg-gray-100 rounded text-xs">These codes define the function of the protective relay installed on the line.</p>`;
+                    break;
+                 case 'BUS_SUMMARY':
+                    const bus = busData.find(b => b.id === busId);
+                    modalTitle = `Bus ${busId} Status Summary`;
+                    modalContent = `<p><strong>Load Type:</strong> ${bus.load_type}</p>
+                                    <p><strong>P Load (Base):</strong> ${bus.P_load_base} p.u.</p>
+                                    <p><strong>DG Status:</strong> ${bus.DG_status} (Q-Control: ${bus.DG_Q_mode})</p>
+                                    <p class="mt-3 font-bold">Key Code Metrics:</p>
+                                    <ul class="list-disc list-inside space-y-1">
+                                        <li>Voltage Magnitude (PGC): <span class="${bus.V_result >= VOLTAGE_LIMIT_MIN ? 'text-code-pass' : 'text-code-fail'}">${bus.V_result.toFixed(4)} p.u.</span></li>
+                                        <li>Voltage Drop (PEC): <span class="${bus.voltage_drop_percent <= MAX_VOLTAGE_DROP_PERCENT ? 'text-code-pass' : 'text-code-fail'}">${bus.voltage_drop_percent.toFixed(2)}%</span></li>
+                                        <li>Harmonic Distortion (PGC): <span class="${bus.thd_value <= HARMONIC_LIMIT_THD ? 'text-code-pass' : 'text-code-fail'}">${bus.thd_value.toFixed(2)}%</span></li>
+                                    </ul>`;
+                    break;
+            }
+
+            title.innerHTML = modalTitle;
+            body.innerHTML = modalContent;
+            modal.classList.remove('hidden');
+            document.getElementById('modalContent').classList.remove('scale-95');
+            document.getElementById('modalContent').classList.add('scale-100');
+        }
+
+        function closeModal() {
+            const modal = document.getElementById('technicalModal');
+            document.getElementById('modalContent').classList.add('scale-95');
+            document.getElementById('modalContent').classList.remove('scale-100');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 300);
+        }
 
         // --- Data Initialization and UI Helpers ---
 
@@ -829,6 +1158,8 @@
                 const loadMultiplier = 1 + (i / NUM_BUSES) * 0.5;
                 const P_load_base = parseFloat(((Math.random() * 1.0 + 0.1) * loadMultiplier).toFixed(3));
                 const Q_load_base = parseFloat(((Math.random() * 0.5 + 0.1) * loadMultiplier).toFixed(3));
+                const load_type = ['Industrial', 'Commercial', 'Residential'][i % 3];
+                const thd_base = LOAD_TYPES[load_type].thd_avg;
 
                 busData.push({
                     id: i,
@@ -843,10 +1174,13 @@
                     delta: 0.0,
                     V_result: V_init,
                     voltage_drop_percent: 0.0,
-                    // Smart Grid Features:
+                    // Technical/Smart Grid Features:
+                    load_type: load_type,
+                    thd_base: thd_base,
+                    thd_value: thd_base, // Initial THD
                     DG_status: (i === 4 || i === 12) ? 'Off' : 'N/A', 
                     DG_capacity: (i === 4 || i === 12) ? 1.5 : 0.0,
-                    DG_Q_mode: 'Unity', // Unity, Boost V, Absorb Q
+                    DG_Q_mode: 'Unity', 
                     DR_enabled: (i === 7 || i === 15) ? true : false, 
                     DR_reduction: 0.0 
                 });
@@ -897,10 +1231,9 @@
                     Z_pu: Math.sqrt(R_pu * R_pu + X_pu * X_pu),
                     wireType: acsrType.code,
                     active: true,
-                    // New protection data
                     breakerModel: BREAKER_MODELS[Math.floor(Math.random() * BREAKER_MODELS.length)],
-                    recloserModel: RECLOSER_MODELS[Math.floor(Math.random() * RECLOSER_MODELS.length)],
-                    isWireAdequate: true, // Reset on init
+                    recloserModel: ANSI_RELAYS[Math.floor(Math.random() * ANSI_RELAYS.length)], // Use ANSI Relay
+                    isWireAdequate: true, 
                     recommendedWire: null 
                 });
             });
@@ -1024,6 +1357,7 @@
                     if (bus.DG_capacity > 0) {
                         smartGridFields += `
                             <div class="space-y-1 pt-2 border-t border-gray-200">
+                                <label class="block text-xs font-bold text-accent-blue">DG Control (Bus ${bus.id})</label>
                                 <label class="block text-xs font-medium text-gray-600">DG Status (Cap: ${bus.DG_capacity} p.u.)</label>
                                 <select class="line-select" onchange="updateSystemParameter(${bus.id}, 'DG_status', this.value)">
                                     <option value="On" ${bus.DG_status === 'On' ? 'selected' : ''}>ON</option>
@@ -1043,16 +1377,17 @@
                     if (bus.DR_enabled) {
                         smartGridFields += `
                             <div class="space-y-1 pt-2 ${bus.DG_capacity > 0 ? '' : 'border-t border-gray-200'}">
-                                <label class="block text-xs font-medium text-gray-600">Demand Response (DR)</label>
+                                <label class="block text-xs font-bold text-accent-blue">Demand Response (Bus ${bus.id})</label>
+                                <label class="block text-xs font-medium text-gray-600">P Reduction (p.u.)</label>
                                 <input type="number" value="${bus.DR_reduction.toFixed(3)}" step="0.01" min="0" max="${bus.P_load_base * 0.5}"
-                                    class="w-full config-input text-sm" onchange="updateSystemParameter(${bus.id}, 'DR_reduction', this.value)" placeholder="P Reduction (p.u.)">
+                                    class="w-full config-input text-sm" onchange="updateSystemParameter(${bus.id}, 'DR_reduction', this.value)">
                             </div>
                         `;
                     }
 
 
                      inputHTML = `
-                        <label class="block text-xs font-bold text-text-dark">Bus ${bus.id} (${bus.type})</label>
+                        <label class="block text-xs font-bold text-text-dark">${bus.id}. ${bus.load_type}</label>
                         ${loadFields}
                         ${smartGridFields}
                     `;
@@ -1069,7 +1404,6 @@
         function displayLineConfiguration() {
             const configDiv = document.getElementById('lineConfiguration');
             configDiv.innerHTML = '';
-            document.getElementById('lineConfigHeader').classList.add('line-item-full'); // Update header grid
 
             const sortedACSRTypes = ACSR_TYPES.map(type => ({
                 code: type.code,
@@ -1084,10 +1418,10 @@
                 </select>
             `;
 
-            const getRecloserSelect = (line) => `
+            const getRelaySelect = (line) => `
                  <select class="line-select" onchange="updateSystemParameter(${line.id}, 'recloserModel', this.value)">
-                    ${RECLOSER_MODELS.map(model => 
-                        `<option value="${model}" ${line.recloserModel === model ? 'selected' : ''}>${model}</option>`
+                    ${ANSI_RELAYS.map(relay => 
+                        `<option value="${relay}" ${line.recloserModel === relay ? 'selected' : ''}>${relay}</option>`
                     ).join('')}
                 </select>
             `;
@@ -1122,7 +1456,7 @@
                             onchange="updateSystemParameter(${line.id}, 'X_user', this.value)" title="Reactance (p.u.)">
                         
                         ${getBreakerSelect(line)}
-                        ${getRecloserSelect(line)}
+                        ${getRelaySelect(line)}
                         
                         <label class="relative inline-flex items-center cursor-pointer justify-center">
                             <input type="checkbox" ${line.active ? 'checked' : ''} class="sr-only peer" 
@@ -1141,14 +1475,14 @@
             const lfMessage = document.getElementById('lfMessage');
             let tableHTML = `
                 <thead>
-                    <tr>
+                    <tr class="bg-gray-200">
                         <th class="rounded-tl-lg">Bus ID</th>
                         <th>Type</th>
+                        <th>Load Class</th>
                         <th>V Mag. (p.u.)</th>
-                        <th>V Drop (%)</th>
                         <th>P Load (p.u.)</th>
                         <th>P Gen (p.u.)</th>
-                        <th class="rounded-tr-lg">Q Gen/Mode</th>
+                        <th class="rounded-tr-lg">THD (%)</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -1157,28 +1491,22 @@
             results.forEach(res => {
                 const bus = busData.find(b => b.id === res.id);
                 let colorClass = 'text-code-pass';
-                let voltageWarning = '';
 
-                if (res.V < 0.97) { colorClass = 'text-yellow-600 font-semibold'; voltageWarning = ' (Low V)'; }
-                if (res.V < 0.93) { colorClass = 'text-red-600 font-bold'; voltageWarning = ' (CRITICAL)'; }
-                if (res.V > 1.04) { colorClass = 'text-primary font-semibold'; voltageWarning = ' (High V)'; }
+                if (res.V < 0.97) { colorClass = 'text-yellow-600 font-semibold'; }
+                if (res.V < 0.93) { colorClass = 'text-red-600 font-bold'; }
+                if (res.V > 1.04) { colorClass = 'text-primary font-semibold'; }
                 
-                const isVDOK = res.voltage_drop_percent <= MAX_VOLTAGE_DROP_PERCENT;
-                const vdColorClass = isVDOK ? 'text-code-pass' : 'text-code-fail font-bold';
-
-                const Q_gen_text = bus.DG_capacity > 0 && bus.DG_status === 'On' ? 
-                                   `${bus.Q_gen.toFixed(3)} (${bus.DG_Q_mode})` : 
-                                   (bus.type === 'Slack' ? 'Ref' : bus.Q_gen.toFixed(3));
+                const thdColorClass = bus.thd_value <= HARMONIC_LIMIT_THD ? 'text-code-pass' : 'text-code-fail font-bold';
                 
                 tableHTML += `
                     <tr>
-                        <td>${bus.id}</td>
+                        <td class="font-bold">${bus.id}</td>
                         <td>${bus.type}</td>
-                        <td class="${colorClass}">${res.V.toFixed(4)} ${voltageWarning}</td>
-                        <td class="${vdColorClass}">${res.voltage_drop_percent.toFixed(2)}%</td>
-                        <td>${bus.P_load.toFixed(3)} (DR: ${bus.DR_reduction.toFixed(3)})</td>
-                        <td>${bus.P_gen.toFixed(3)} ${bus.DG_capacity > 0 ? (bus.DG_status === 'On' ? '(DG ON)' : '(N/A)') : ''}</td>
-                        <td>${Q_gen_text}</td>
+                        <td>${bus.load_type}</td>
+                        <td class="${colorClass}">${res.V.toFixed(4)}</td>
+                        <td>${bus.P_load.toFixed(3)}</td>
+                        <td>${bus.P_gen.toFixed(3)} ${bus.DG_status === 'On' ? '(DG ON)' : ''}</td>
+                        <td class="${thdColorClass}">${bus.thd_value.toFixed(2)}</td>
                     </tr>
                 `;
             });
@@ -1192,12 +1520,11 @@
 
             if (lfMessage) {
                 lfMessage.innerHTML = `<p class="text-sm text-center text-primary mb-2 font-medium">Load Flow completed using **${method}** method simulation. ${lineData.filter(l => l.active).length}/${NUM_LINES} wires active.</p>`;
-                lfMessage.classList.add('hidden'); // Hide message when table is visible
+                lfMessage.classList.add('hidden'); 
             }
         }
         
         function displayIterativeResults() { 
-            const iterativeDiv = document.getElementById('loadFlowIterativeResults');
             const messageDiv = document.getElementById('lfIterativeMessage');
             
             if (lfIterativeData.length === 0) {
@@ -1206,34 +1533,32 @@
             }
 
             const method = lfIterativeData[0].method;
-            let htmlContent = `<h3 class="text-lg font-semibold text-text-dark mb-3 text-center">Simulated ${method} Iterations for Convergence (V and &delta;)</h3>`;
+            let htmlContent = `<h3 class="text-lg font-semibold text-text-dark mb-3 text-center">Simulated ${method} Iterations (V and &delta;)</h3>`;
 
-            // Loop through each bus to create its own table/section
             for (let i = 1; i <= NUM_BUSES; i++) {
                 const busId = i;
                 const busType = busData.find(b => b.id === busId).type;
 
                 htmlContent += `
-                    <div class="mb-6 border p-3 rounded-lg bg-gray-50">
+                    <div class="mb-6 border p-3 rounded-lg bg-gray-50 shadow-inner">
                         <h4 class="font-bold text-md text-text-dark mb-2">Bus ${busId} (${busType})</h4>
                         <table class="w-full iterative-table">
                             <thead>
                                 <tr>
-                                    <th rowspan="2">Iteration (k)</th>
+                                    <th rowspan="2">Iter (k)</th>
                                     <th colspan="2">Voltage (V)</th>
                                     <th colspan="2">Angle (&delta;) (Deg)</th>
                                 </tr>
-                                <tr>
-                                    <th>Magnitude (p.u.)</th>
-                                    <th>Change (&Delta;V)</th>
+                                <tr class="bg-gray-100">
+                                    <th>Mag (p.u.)</th>
+                                    <th>&Delta;V</th>
                                     <th>Value</th>
-                                    <th>Change (&Delta;&delta;)</th>
+                                    <th>&Delta;&delta;</th>
                                 </tr>
                             </thead>
                             <tbody>
                 `;
 
-                // Loop through iterations for this specific bus
                 for (let k = 0; k < lfIterativeData.length; k++) {
                     const currentData = lfIterativeData[k].data.find(d => d.id === busId);
                     const prevData = (k > 0) ? lfIterativeData[k-1].data.find(d => d.id === busId) : currentData;
@@ -1248,9 +1573,9 @@
                         <tr>
                             <td>${k}</td>
                             <td>${V_mag}</td>
-                            <td class="${k > 0 && Math.abs(deltaV) > 0.001 ? 'text-red-500' : 'text-gray-500'}">${deltaV}</td>
+                            <td class="${k > 0 && Math.abs(parseFloat(deltaV)) > 0.001 ? 'text-red-500' : 'text-gray-500'}">${deltaV}</td>
                             <td>${delta_val}</td>
-                            <td class="${k > 0 && Math.abs(deltaDelta) > 0.001 ? 'text-red-500' : 'text-gray-500'}">${deltaDelta}</td>
+                            <td class="${k > 0 && Math.abs(parseFloat(deltaDelta)) > 0.001 ? 'text-red-500' : 'text-gray-500'}">${deltaDelta}</td>
                         </tr>
                     `;
                 }
