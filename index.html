@@ -4,10 +4,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Smart Grid Simulator</title>
+    <!-- Tailwind CSS for styling -->
     <script src="https://cdn.tailwindcss.com"></script>
     <!-- Chart.js for dynamic graphing -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
     <script>
+        // --- Tailwind Configuration ---
         tailwind.config = {
             theme: {
                 extend: {
@@ -25,6 +27,9 @@
                         'code-pass': '#10b981',
                         'code-fail': '#ef4444',
                         'code-fix': '#22c55e', /* Green for fixed items */
+                        'kv-138': '#4ade80', /* Green for 13.8kV */
+                        'kv-345': '#3b82f6', /* Blue for 34.5kV */
+                        'kv-69': '#f97316', /* Orange for 69kV */
                     },
                     fontFamily: {
                         sans: ['Inter', 'sans-serif'],
@@ -34,13 +39,14 @@
         }
     </script>
     <style>
+        /* Base styles and custom layout classes */
         body {
             background-color: #f3f4f6; 
             color: #1f2937; 
             font-family: 'Inter', sans-serif;
             min-height: 100vh;
         }
-        /* Tables */
+        /* Standard table styling */
         .bus-result-table th, .bus-result-table td, .compliance-table th, .compliance-table td {
             padding: 8px;
             text-align: left;
@@ -52,11 +58,6 @@
             color: #4b5563;
             font-weight: 600;
         }
-        .short-circuit-table td:nth-child(2) {
-            font-weight: 700;
-            color: #f97316; 
-        }
-        /* Configuration Inputs */
         .config-input {
             width: 100%; 
             padding: 2px 4px;
@@ -66,23 +67,37 @@
             font-size: 0.75rem;
             color: #1f2937;
         }
+        /* Increased height for configuration panels */
         .config-list {
-            max-height: 400px;
+            max-height: 550px; 
             overflow-y: auto;
             padding-right: 8px; 
         }
-        /* Line config layout for breakers/reclosers - IMPROVED LAYOUT */
-        .line-item-full {
-            /* Adjusted grid template for better distribution: 
-               WireType | From | To | R | X | Breaker | Relay | On/Off 
-               Smaller columns for numbers (R/X) and smaller elements (From/To/Toggle) */
-            grid-template-columns: 1.1fr 0.4fr 0.4fr 0.6fr 0.6fr 1.0fr 1.0fr 0.3fr;
-            display: grid; 
-            align-items: center;
-            gap: 4px;
+        
+        /* Two-row compact layout for line configuration */
+        .line-item-block {
+            display: flex;
+            flex-direction: column;
             padding: 8px 0;
             border-bottom: 1px solid #e5e7eb;
             font-size: 0.75rem;
+            gap: 4px;
+        }
+        /* Row 1: Wire Type, From, To, Active Toggle */
+        .line-item-row-1 {
+            display: grid;
+            grid-template-columns: 1.5fr 0.4fr 0.4fr 0.3fr; 
+            align-items: center;
+            gap: 4px;
+        }
+        /* Row 2: R, X, Breaker, Relay */
+        .line-item-row-2 {
+            display: grid;
+            grid-template-columns: 0.6fr 0.6fr 1fr 1fr; 
+            align-items: center;
+            gap: 4px;
+            padding-top: 2px;
+            border-top: 1px dashed #f3f4f6;
         }
         .line-select {
             padding: 2px;
@@ -93,47 +108,33 @@
             background-color: white;
             width: 100%;
         }
-
-        /* SVG Styling */
-        #networkSVG {
-            border: 1px solid #e5e7eb;
-            border-radius: 12px;
-            background-color: #fcfcfc;
-            width: 100%;
-            height: 400px;
+        /* Transformer Specific Styling */
+        .xfmr-item-block {
+            display: grid;
+            grid-template-columns: 0.5fr 0.4fr 0.4fr 1.5fr 1fr;
+            align-items: center;
+            gap: 4px;
+            padding: 8px 0;
+            border-bottom: 1px solid #e5e7eb;
+            font-size: 0.75rem;
         }
-        /* Bubbly Button Style */
-        .bubbly-button {
-            transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
-            box-shadow: 0 6px 10px rgba(0, 0, 0, 0.15);
-        }
-        .bubbly-button:hover {
-            transform: translateY(-2px) scale(1.01);
-            box-shadow: 0 12px 20px rgba(0, 0, 0, 0.2);
-        }
-        .bubbly-button:active {
-            transform: translateY(0);
-        }
-        .tab-button {
-            transition: color 0.3s, border-color 0.3s;
-        }
-        /* Fix for Chart resizing issue */
+        /* Fixed height for chart container to prevent layout shifting (CLS) */
         .chart-container {
             position: relative;
-            height: 300px; /* Fixed height to prevent CLS */
+            height: 300px; 
         }
     </style>
 </head>
 <body class="p-4 sm:p-8">
 
     <div id="app" class="max-w-6xl mx-auto">
+        <!-- Header Section -->
         <h1 class="text-3xl font-extrabold text-text-dark mb-6 border-b-4 border-accent-blue pb-3 text-center flex items-center justify-center">
-            <!-- New, colorful logo/icon -->
             <svg class="w-10 h-10 mr-3 text-accent-blue" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
             <span class="text-primary">Smart</span> Grid Simulator 
         </h1>
 
-        <!-- System Visualization and Configuration -->
+        <!-- Visualization and Configuration Layout -->
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
 
             <!-- Network Topology Diagram (SVG) -->
@@ -148,25 +149,52 @@
                 <p id="faultBusTip" class="mt-4 text-center text-sm text-gray-500">Click a bus node to select the fault location. Current Fault Bus: <span id="currentFaultBus" class="font-bold text-red-600">10</span></p>
             </div>
 
-            <!-- Line Configuration -->
+            <!-- Line/Transformer Configuration Panel -->
             <div class="bg-white p-5 rounded-xl shadow-2xl border border-gray-100">
-                <h2 class="text-xl font-semibold text-text-dark mb-4 border-b border-gray-300 pb-2 flex items-center">
-                    <svg class="w-5 h-5 mr-2 text-secondary" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M19 9h-4V3H9v6H5l7 7 7-7zM7.17 11h9.66L12 15.3l-4.83-4.3z"></path></svg>
-                    Line & Protection Config (32 Lines)
-                </h2>
-                <div id="lineConfigHeader" class="text-xs text-gray-500 grid grid-cols-8 gap-2 font-bold mb-1 px-1 line-item-full">
-                    <span>Wire Type</span>
-                    <span>From</span>
-                    <span>To</span>
-                    <span class="text-right">R (p.u.)</span>
-                    <span class="text-right">X (p.u.)</span>
-                    <span>Breaker</span>
-                    <span class="cursor-pointer font-extrabold" onclick="openCodeDetails('ANSI_CODE_EXPLANATION')">ANSI Relay</span>
-                    <span>On/Off</span>
+                <div class="flex border-b border-gray-300 mb-4">
+                    <button id="configTabLines" onclick="showConfig('lines')" class="flex-1 px-3 py-2 text-md font-semibold border-b-2 border-primary text-primary transition duration-300">Lines</button>
+                    <button id="configTabXfmr" onclick="showConfig('xfmr')" class="flex-1 px-3 py-2 text-md font-semibold text-gray-500 hover:text-text-dark transition duration-300">Transformers</button>
                 </div>
-                <div id="lineConfiguration" class="config-list">
-                    <!-- Line toggles, R/X, Breaker/Recloser inputs will be inserted here -->
+
+                <!-- Line Configuration Panel Content -->
+                <div id="lineConfigPanel">
+                    <h3 class="text-lg font-semibold text-text-dark mb-3">Wire Lines (32)</h3>
+                    <!-- Header defines the two-row grid layout for each line item -->
+                    <div id="lineConfigHeader" class="text-xs text-gray-500 font-bold mb-1 px-1">
+                        <div class="line-item-row-1 mb-1">
+                            <span>Wire Type</span>
+                            <span>From</span>
+                            <span>To</span>
+                            <span class="text-center">Active</span>
+                        </div>
+                        <div class="line-item-row-2 text-center text-gray-400">
+                            <span class="text-right">R (p.u.)</span>
+                            <span class="text-right">X (p.u.)</span>
+                            <span>Breaker</span>
+                            <span class="cursor-pointer font-extrabold" onclick="openCodeDetails('ANSI_CODE_EXPLANATION')">ANSI Relay</span>
+                        </div>
+                    </div>
+    
+                    <div id="lineConfiguration" class="config-list">
+                        <!-- Line data inserted here -->
+                    </div>
                 </div>
+
+                <!-- Transformer Configuration Panel Content -->
+                <div id="xfmrConfigPanel" class="hidden">
+                    <h3 class="text-lg font-semibold text-text-dark mb-3">Transformer Banks (7)</h3>
+                     <div class="xfmr-item-block text-xs text-gray-500 font-bold mb-1 px-1">
+                        <span>ID</span>
+                        <span>From</span>
+                        <span>To</span>
+                        <span>MVA Rating</span>
+                        <span>Z p.u.</span>
+                    </div>
+                    <div id="xfmrConfiguration" class="config-list">
+                        <!-- Transformer data inserted here -->
+                    </div>
+                </div>
+
                 <button onclick="runLoadFlow()" class="bubbly-button mt-4 w-full py-3 px-4 bg-gradient-to-r from-primary to-teal-400 text-white font-extrabold rounded-xl shadow-lg hover:shadow-xl">
                     <svg class="w-5 h-5 inline-block mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0h6m-6 0h-2m8 0V7a2 2 0 00-2-2h-2a2 2 0 00-2 2v12m-2-12h4m2 0V5a2 2 0 00-2-2h-2a2 2 0 00-2 2v12m-2-12h4"></path></svg>
                     Run Load Flow & Compliance Check
@@ -329,29 +357,40 @@
 
 
     <script>
-        // Global Constants
-        const BASE_MVA = 100.0;
-        const BASE_KV_LINE = 13.8;
+        // --- GLOBAL CONSTANTS ---
+        const BASE_MVA = 100.0; // System MVA base for per-unit calculations
+        const KV_LEVELS = {
+            '69': 69.0,
+            '34.5': 34.5,
+            '13.8': 13.8
+        }; // Standard Philippine voltage levels (simulated)
+        const BASE_KV_LINE = KV_LEVELS['13.8']; 
         const NUM_BUSES = 15;
         const NUM_LINES = 32;
+        const NUM_XFMR = 7; 
 
-        // PEC/PGC (Simplified) Constants
-        const MAX_VOLTAGE_DROP_PERCENT = 3.0; // PEC (based on 3% feeder/branch drop - PEC 2.30.2.7)
-        const VOLTAGE_LIMIT_MIN = 0.95; // PGC Voltage tolerance (PGC Sec. 6.3.1.2)
-        const BREAKER_SAFETY_MARGIN = 1.25; // PEC 125% continuous load rule (PEC 2.15.2.2)
-        const HARMONIC_LIMIT_THD = 5.0; // PGC/PEC reference point (simulated 5% THD)
+        // PEC/PGC (Simplified) Constants for Compliance Checks
+        const MAX_VOLTAGE_DROP_PERCENT = 3.0; // PEC 2.30.2.7 Feeder VD limit
+        const VOLTAGE_LIMIT_MIN = 0.95; // PGC Voltage tolerance (0.95 p.u.)
+        const BREAKER_SAFETY_MARGIN = 1.25; // PEC 125% continuous load rule
+        const HARMONIC_LIMIT_THD = 5.0; // PGC/PEC Total Harmonic Distortion limit (simulated)
 
         // Expanded Component Models (Technical Depth)
         const BREAKER_MODELS = [
-            'ABB VCB (31.5kA)', 'Siemens OCB (25kA)', 'GE SF6 (40kA)', 'Schneider Vacuum (20kA)'
+            'GE SF6 VCB (40kA)', 'ABB VCB (31.5kA)', 'Siemens OCB (25kA)', 'Schneider Vacuum (20kA)',
+            'Mitsubishi VCB (50kA)', 'Hitachi VCB (35kA)', 'Eaton VCP (18kA)', 'Hyundai HVC (40kA)',
+            'Toshiba OCB (12.5kA)', 'Chint VCB (31.5kA)', 'Areva DT1 (25kA)', 'GE ML17 (50kA)',
+            'ABB HPL 72 (40kA)', 'Siemens 3AP (50kA)', 'Schneider LF (25kA)' // Total 15 Breakers
         ];
         // ANSI Relay Codes for Reclosers/OCPD Protection
         const ANSI_RELAYS = [
             'No Protection',
-            '50/51 (Instantaneous/Time Ovr Current)',
+            '50/51 (Inst/Time Ovr Current)',
             '79 (Reclosing)',
             '21 (Distance)',
-            '67 (Directional Over Current)'
+            '67 (Directional Ovr Current)',
+            '87 (Differential)',
+            '81 (Frequency)',
         ];
         // Load types for Harmonics Simulation
         const LOAD_TYPES = {
@@ -359,29 +398,66 @@
             'Commercial': { pf: 0.90, thd_avg: 4.0 },
             'Residential': { pf: 0.95, thd_avg: 2.5 }
         };
-
-        // ACSR data (Ampacity added for sizing)
-        const ACSR_TYPES = [
-            { name: "TURKEY (6 AWG)", R_DC: 2.1499, X_R_ratio: 3.5, code: "TURKEY", ampacity: 40 },
-            { name: "SPARROW (2 AWG)", R_DC: 0.8512, X_R_ratio: 5.5, code: "SPARROW", ampacity: 95 },
-            { name: "RAVEN (1/0 AWG)", R_DC: 0.5343, X_R_ratio: 7.5, code: "RAVEN", ampacity: 125 },
-            { name: "OWL (266.8 MCM)", R_DC: 0.2112, X_R_ratio: 11, code: "OWL", ampacity: 230 },
-            { name: "PELICAN (477 MCM)", R_DC: 0.1186, X_R_ratio: 14, code: "PELICAN", ampacity: 310 },
-            { name: "CARDINAL (954 MCM)", R_DC: 0.0596, X_R_ratio: 20, code: "CARDINAL", ampacity: 415 },
-            { name: "LAPWING (1590 MCM)", R_DC: 0.0359, X_R_ratio: 24, code: "LAPWING", ampacity: 450 },
-            { name: "DIN 550/70", R_DC: 0.0526, X_R_ratio: 25, code: "DIN550", ampacity: 380 }, // FIX: Corrected Ampacity from 400A to 380A
-        ];
         
-        // System Data Storage
+        // Expanded Transformer MVA and Impedance
+        const XFMR_SPECS = [
+            { rating: 10, Z_percent: 5.75, code: '10MVA_5.75Z' },
+            { rating: 20, Z_percent: 7.0, code: '20MVA_7.0Z' },
+            { rating: 25, Z_percent: 7.5, code: '25MVA_7.5Z' },
+            { rating: 40, Z_percent: 8.0, code: '40MVA_8.0Z' },
+            { rating: 50, Z_percent: 8.5, code: '50MVA_8.5Z' },
+            { rating: 75, Z_percent: 9.0, code: '75MVA_9.0Z' },
+            { rating: 100, Z_percent: 10.0, code: '100MVA_10.0Z' }
+        ];
+
+        // --- EXPANDED ACSR DATA (Sorted by Ampacity) ---
+        const ACSR_TYPES = [
+            // Ampacity derived for 13.8kV (Distribution Level)
+            { name: "TURKEY (6 AWG)", R_DC: 2.1499, X_R_ratio: 3.5, code: "TURKEY", ampacity: 90 },
+            { name: "SWAN (4 AWG)", R_DC: 1.3501, X_R_ratio: 4.5, code: "SWAN", ampacity: 120 },
+            { name: "SPARROW (2 AWG)", R_DC: 0.8512, X_R_ratio: 5.5, code: "SPARROW", ampacity: 155 },
+            { name: "ROBIN (1 AWG)", R_DC: 0.6742, X_R_ratio: 7, code: "ROBIN", ampacity: 175 },
+            { name: "RAVEN (1/0 AWG)", R_DC: 0.5343, X_R_ratio: 7.5, code: "RAVEN", ampacity: 200 },
+            { name: "QUAIL (2/0 AWG)", R_DC: 0.4247, X_R_ratio: 8, code: "QUAIL", ampacity: 225 },
+            { name: "PIGEON (3/0 AWG)", R_DC: 0.3359, X_R_ratio: 9, code: "PIGEON", ampacity: 260 },
+            { name: "PENGUIN (4/0 AWG)", R_DC: 0.2667, X_R_ratio: 10, code: "PENGUIN", ampacity: 300 },
+            { name: "FLICKER (266.8 MCM)", R_DC: 0.2112, X_R_ratio: 11, code: "FLICKER", ampacity: 335 },
+            { name: "OWL (266.8 MCM)", R_DC: 0.2112, X_R_ratio: 11, code: "OWL", ampacity: 335 },
+            { name: "LINNET (336.4 MCM)", R_DC: 0.1693, X_R_ratio: 12, code: "LINNET", ampacity: 380 },
+            { name: "TRUSH (336.4 MCM)", R_DC: 0.1688, X_R_ratio: 12, code: "TRUSH", ampacity: 380 },
+            { name: "DIN 550/70", R_DC: 0.0526, X_R_ratio: 25, code: "DIN550", ampacity: 380 }, // Example DIN wire added
+            { name: "WAXA (397.7 MCM)", R_DC: 0.1430, X_R_ratio: 13, code: "WAXA", ampacity: 420 },
+            { name: "CHICKADEE (397.7 MCM)", R_DC: 0.1430, X_R_ratio: 13, code: "CHICKADEE", ampacity: 420 },
+            { name: "PELICAN (477 MCM)", R_DC: 0.1186, X_R_ratio: 14, code: "PELICAN", ampacity: 470 },
+            { name: "HAWK (556.5 MCM)", R_DC: 0.1017, X_R_ratio: 15, code: "HAWK", ampacity: 510 },
+            { name: "OSPREY (556.5 MCM)", R_DC: 0.1017, X_R_ratio: 15, code: "OSPREY", ampacity: 510 },
+            { name: "PEACOCK (605 MCM)", R_DC: 0.0943, X_R_ratio: 15, code: "PEACOCK", ampacity: 550 },
+            { name: "DOVE (636 MCM)", R_DC: 0.0890, X_R_ratio: 16, code: "DOVE", ampacity: 575 },
+            { name: "PARTRIDGE (636 MCM)", R_DC: 0.0890, X_R_ratio: 16, code: "PARTRIDGE", ampacity: 575 },
+            { name: "KINGBIRD (636 MCM)", R_DC: 0.0890, X_R_ratio: 16, code: "KINGBIRD", ampacity: 575 },
+            { name: "FLAMINGO (666.6 MCM)", R_DC: 0.0856, X_R_ratio: 16, code: "FLAMINGO", ampacity: 600 },
+            { name: "STILT (715.5 MCM)", R_DC: 0.0795, X_R_ratio: 17, code: "STILT", ampacity: 630 },
+            { name: "TERN (795 MCM)", R_DC: 0.0715, X_R_ratio: 18, code: "TERN", ampacity: 675 },
+            { name: "CRANE (874.5 MCM)", R_DC: 0.0649, X_R_ratio: 19, code: "CRANE", ampacity: 720 },
+            { name: "CARDINAL (954 MCM)", R_DC: 0.0596, X_R_ratio: 20, code: "CARDINAL", ampacity: 765 },
+            { name: "REDWING (1033.5 MCM)", R_DC: 0.0547, X_R_ratio: 21, code: "REDWING", ampacity: 800 },
+            { name: "BLUEBIRD (1113 MCM)", R_DC: 0.0515, X_R_ratio: 22, code: "BLUEBIRD", ampacity: 840 },
+            { name: "ORIOLE (1192.5 MCM)", R_DC: 0.0480, X_R_ratio: 23, code: "ORIOLE", ampacity: 880 },
+            { name: "LAPWING (1590 MCM)", R_DC: 0.0359, X_R_ratio: 24, code: "LAPWING", ampacity: 990 },
+            { name: "GRACKLE (1780 MCM)", R_DC: 0.0320, X_R_ratio: 25, code: "GRACKLE", ampacity: 1050 },
+        ].sort((a, b) => a.ampacity - b.ampacity); 
+        
+        // --- DATA STORAGE ---
         let busData = [];
         let lineData = [];
+        let xfmrData = []; 
         let lfResults = null;
         let lfIterativeData = [];
         let selectedFaultBus = 10;
         let busCoordinates = [];
-        let voltageChartInstance = null; // Chart.js instance storage
+        let voltageChartInstance = null; 
         
-        // Optimization Tracking State
+        // State for tracking and summarizing automatic optimization changes
         let optimizationTrack = {
             preViolations: 0,
             preAvgV: 1.0,
@@ -390,42 +466,96 @@
             drActions: [],
             hasRun: false
         };
-
-
-        // --- Core Simulation Functions ---
+        
+        // --- CORE UTILITY FUNCTIONS ---
 
         /**
-         * Simulates the Load Flow process.
+         * Calculates the base impedance (Z_base) for a given voltage level in Ohms.
+         * Z_base = kV^2 / MVA_base (where MVA_base is 100)
+         * @param {number} kvLevel - The kilovolt rating (e.g., 69.0)
+         * @returns {number} Z_base in Ohms
+         */
+        function calculateZBase(kvLevel) {
+            return (kvLevel * kvLevel) / BASE_MVA;
+        }
+
+        /**
+         * Finds the smallest conductor size (by code) that meets the required ampacity.
+         * Used for the PEC Ampacity Check and the automatic optimization logic.
+         * @param {number} requiredAmpacity - The minimum ampacity required (in Amperes).
+         * @param {string} currentWireCode - The code of the currently installed wire.
+         * @returns {string} The code of the recommended wire type.
+         */
+        function findRecommendedWireCode(requiredAmpacity, currentWireCode) {
+            const currentIndex = ACSR_TYPES.findIndex(t => t.code === currentWireCode);
+            let nextWire = null;
+
+            // 1. If the current wire is already adequate, return it.
+            if (currentIndex !== -1 && ACSR_TYPES[currentIndex].ampacity >= requiredAmpacity) {
+                return currentWireCode;
+            }
+
+            // 2. Iterate through the sorted list (smallest to largest ampacity)
+            for (let i = 0; i < ACSR_TYPES.length; i++) {
+                 if (ACSR_TYPES[i].ampacity >= requiredAmpacity) {
+                    nextWire = ACSR_TYPES[i].code;
+                    break; // Found the smallest suitable wire, break loop
+                }
+            }
+            
+            // 3. Fallback to the largest available wire if required ampacity is too high
+            if (!nextWire) {
+                return ACSR_TYPES[ACSR_TYPES.length - 1].code;
+            }
+
+            return nextWire;
+        }
+
+
+        // --- SIMULATION CORE ---
+
+        /**
+         * Simulates the Load Flow process (Simplified Newton-Raphson/Gauss-Seidel).
+         * Calculates V magnitude (V_result) and angle (delta) iteratively.
+         * @param {string} method - 'NR' or 'GS' for simulation logic (convergence speed).
+         * @returns {Array<object>} Final load flow results for all buses.
          */
         function loadFlow(method) {
+            // Clear previous iterative results
             lfIterativeData = []; 
-            const activeLines = lineData.filter(line => line.active);
-            const totalZ_active = activeLines.reduce((sum, line) => sum + line.Z_pu, 0);
-            const systemImpedanceFactor = totalZ_active > 0 ? totalZ_active / NUM_LINES : 1.0; 
-            const MAX_ITERATIONS = (method === 'NR') ? 4 : 8;
             
+            // Simplified approximation of system impedance for convergence calculation
+            let totalZ_active = 0;
+            lineData.filter(line => line.active).forEach(line => { totalZ_active += line.Z_pu; });
+            xfmrData.forEach(xfmr => { totalZ_active += xfmr.Z_pu; });
+            
+            const systemImpedanceFactor = totalZ_active > 0 ? totalZ_active / (NUM_LINES + NUM_XFMR) : 1.0; 
+            const MAX_ITERATIONS = (method === 'NR') ? 4 : 8; // NR simulates faster convergence
+            
+            // Initialize system state vectors
             let V_current = busData.map(b => b.V_result);
             let delta_current = busData.map(b => b.delta);
 
+            // Update bus loads and generation based on current smart grid control settings
             busData.forEach((bus) => {
-                // Apply Smart Grid actions and calculate active P/Q loads/gens
+                // DG Status and Q-Mode update logic
                 if (bus.DG_status === 'On') {
                     bus.P_gen = bus.DG_capacity;
                     if (bus.DG_Q_mode === 'Boost V') {
-                        bus.Q_gen = bus.DG_capacity * 0.2; 
+                        bus.Q_gen = bus.DG_capacity * 0.2; // Inject reactive power
                     } else if (bus.DG_Q_mode === 'Absorb Q') {
-                        bus.Q_gen = -bus.DG_capacity * 0.1; 
+                        bus.Q_gen = -bus.DG_capacity * 0.1; // Absorb reactive power
                     } else {
-                        bus.Q_gen = 0.0;
+                        bus.Q_gen = 0.0; // Unity Power Factor
                     }
                 } else if (bus.DG_status === 'Off') {
                     bus.P_gen = 0.0;
                     bus.Q_gen = 0.0;
                 }
                 
+                // DR Status update logic
                 if (bus.DR_enabled && bus.DR_reduction > 0) {
-                    const maxReduction = bus.P_load_base * 0.5;
-                    const reduction = Math.min(bus.DR_reduction, maxReduction);
+                    const reduction = Math.min(bus.DR_reduction, bus.P_load_base * 0.5);
                     bus.P_load = bus.P_load_base - reduction;
                     bus.Q_load = bus.Q_load_base - (reduction * 0.5); 
                 } else {
@@ -433,14 +563,14 @@
                     bus.Q_load = bus.Q_load_base;
                 }
                 
-                // Simulated Harmonics (based on load type and system loading)
+                // Simulated THD calculation based on loading factor
                 const loadingFactor = (bus.P_load + bus.Q_load) / (bus.P_load_base + bus.Q_load_base);
                 bus.thd_value = parseFloat((bus.thd_base * loadingFactor * 0.8).toFixed(2));
             });
             
             let P_bus_base = busData.map(b => b.P_load - b.P_gen);
             let Q_bus_base = busData.map(b => b.Q_load - b.Q_gen);
-
+            
             // Save initial values (Iteration 0)
             lfIterativeData.push({
                 iteration: 0,
@@ -448,21 +578,23 @@
                 data: busData.map(b => ({ id: b.id, V: b.V_result, delta: b.delta, }))
             });
 
-            // Simplified iterative solution...
+            // Iterative Solution Loop
             for (let k = 1; k <= MAX_ITERATIONS; k++) {
                 let V_next = [...V_current];
                 let delta_next = [...delta_current];
                 
                 busData.forEach((bus, i) => {
-                    if (bus.type === 'Slack') {
+                    if (bus.type === 'Slack') { // Slack bus V and delta are fixed
                         V_next[i] = 1.000;
                         delta_next[i] = 0.00;
                         return;
                     }
                     
+                    // Simplified Power Mismatch Calculation (P_mismatch and Q_mismatch)
                     const P_mismatch = P_bus_base[i] + bus.P_gen - 1.0; 
                     const Q_mismatch = Q_bus_base[i] - bus.Q_gen;
 
+                    // Simulated Newton-Raphson correction step (Jacobian inversion simplified)
                     let correctionFactor = (method === 'NR') ? 0.3 : 0.15;
                     correctionFactor *= (MAX_ITERATIONS - k + 1) / MAX_ITERATIONS; 
                     
@@ -470,13 +602,14 @@
                     let dDelta = -(P_mismatch * 0.02 - Q_mismatch * 0.03) * correctionFactor * 10;
                     
                     if (bus.type === 'PV') {
-                         V_next[i] = bus.V; 
+                         V_next[i] = bus.V; // PV bus voltage magnitude is fixed to setpoint
                          delta_next[i] = delta_current[i] + dDelta;
-                    } else { 
+                    } else { // PQ bus
                          V_next[i] = V_current[i] + dV;
                          delta_next[i] = delta_current[i] + dDelta;
                     }
                     
+                    // Apply realistic voltage limits and rounding
                     V_next[i] = parseFloat(Math.max(0.80, Math.min(1.05, V_next[i])).toFixed(4));
                     delta_next[i] = parseFloat(delta_next[i].toFixed(4));
                 });
@@ -484,6 +617,7 @@
                 V_current = V_next;
                 delta_current = delta_next;
 
+                // Store iteration results
                 lfIterativeData.push({
                     iteration: k,
                     method: method,
@@ -495,7 +629,8 @@
             busData.forEach((bus, i) => {
                 bus.V_result = V_current[i];
                 bus.delta = delta_current[i];
-                bus.voltage_drop_percent = parseFloat(((1.0 - bus.V_result) * 100).toFixed(2));
+                // Voltage drop calculated relative to the nominal voltage (1.0 p.u.)
+                bus.voltage_drop_percent = parseFloat(((bus.V - bus.V_result) * 100).toFixed(2)); 
             });
 
             lfResults = busData.map(bus => ({
@@ -509,7 +644,7 @@
         }
 
         /**
-         * Runs Load Flow and updates display.
+         * Initiates the Load Flow simulation and updates the UI.
          */
         function runLoadFlow() {
             const method = document.getElementById('loadFlowMethod').value;
@@ -517,21 +652,19 @@
             const table = document.getElementById('lfTable');
             const complianceMessage = document.getElementById('complianceMessage');
 
-            // Store pre-run values for optimization tracking if not already done
+            // Set pre-optimization state tracking
             if (!optimizationTrack.hasRun) {
-                optimizationTrack.preViolations = 0; // Will be set in runCodeComplianceAndSizing
+                optimizationTrack.preViolations = 0; 
                 optimizationTrack.preAvgV = busData.reduce((sum, b) => sum + b.V_result, 0) / NUM_BUSES;
             }
-            // Hide previous optimization summary
             document.getElementById('optimizationSummary').classList.add('hidden');
-
 
             table.classList.add('hidden');
             lfMessage.classList.remove('hidden');
             document.getElementById('optimizeButton').disabled = true; 
-            document.getElementById('voltageProfileChart').closest('.p-4').classList.add('hidden'); // Hide chart container
+            document.getElementById('voltageProfileChart').closest('.p-4').classList.add('hidden'); 
 
-            // Show loading message
+            // Display loading indicator
             document.getElementById('lfIterativeMessage').innerHTML = `<p class="text-center text-primary py-10 flex items-center justify-center font-semibold">
                                             <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-primary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                                                 <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -542,28 +675,32 @@
             complianceMessage.textContent = 'Calculating PEC/PGC compliance and sizing metrics...';
 
 
+            // Simulate calculation time
             setTimeout(() => {
                 const results = loadFlow(method);
                 displayLoadFlowResults(results, method);
                 displayIterativeResults();
                 displayNetworkTopology(results);
-                runCodeComplianceAndSizing(results); 
-                renderVoltageProfileChart(results, method); // Render chart after LF
+                runCodeComplianceAndSizing(results); // Run compliance check immediately after LF
+                renderVoltageProfileChart(results, method); 
                 showResults('loadFlow');
             }, 1500);
         }
         
         /**
-         * Simulates Short Circuit Analysis (simplified).
-         * NOTE: Converted to function declaration for global access.
+         * Simulates Short Circuit Analysis (simplified symmetrical components).
+         * Converted to function declaration for global access (used by HTML button).
          */
-        function shortCircuit(faultBusId, faultType) { // FIX: Changed to function declaration
+        function shortCircuit(faultBusId, faultType) { 
             const busIndex = faultBusId - 1;
             const V_pre_fault = lfResults ? lfResults[busIndex].V : busData[busIndex].V_result;
             
-            const activeLines = lineData.filter(line => line.active);
-            const totalZ_active = activeLines.reduce((sum, line) => sum + line.Z_pu, 0);
-
+            // Calculate total active impedance (proxy for short circuit level)
+            let totalZ_active = 0;
+            lineData.filter(line => line.active).forEach(line => { totalZ_active += line.Z_pu; });
+            xfmrData.forEach(xfmr => { totalZ_active += xfmr.Z_pu; });
+            
+            // Simulated sequence impedances (Z1, Z2, Z0) based on system strength proxy
             const baseZ1 = totalZ_active / (NUM_LINES * 2) + 0.01; 
             const Z1 = baseZ1 * (1 + (busIndex / NUM_BUSES) * 0.5); 
             const Z2 = Z1 * 1.05;
@@ -572,20 +709,22 @@
             let I1_pu, I2_pu, I0_pu; 
             const V_base = 1.0; 
 
+            // Sequence current calculation depends on fault type
             switch (faultType) {
-                case 'LLL': 
+                case 'LLL': // Three-Phase: I1=V/Z1; I2=I0=0
                     I1_pu = V_base / Z1; I2_pu = 0.0; I0_pu = 0.0; break;
-                case 'SLG': 
+                case 'SLG': // Single-Line-to-Ground: I1=I2=I0=V/(Z1+Z2+Z0)
                     I1_pu = V_base / (Z1 + Z2 + Z0); I2_pu = I1_pu; I0_pu = I1_pu; break;
-                case 'LL': 
+                case 'LL': // Line-to-Line: I1=V/(Z1+Z2); I2=-I1; I0=0
                     I1_pu = V_base / (Z1 + Z2); I2_pu = -I1_pu; I0_pu = 0.0; break;
-                case 'LLG': 
+                case 'LLG': // Double-Line-to-Ground: Complex parallel Z2 || Z0
                     const Z_parallel = (Z2 * Z0) / (Z2 + Z0);
                     I1_pu = V_base / (Z1 + Z_parallel);
                     I0_pu = -I1_pu * (Z2 / (Z2 + Z0));
                     I2_pu = -I1_pu * (Z0 / (Z2 + Z0)); break;
             }
             
+            // Total fault current in p.u. (based on combination of sequence currents)
             let I_fault_pu;
             if (faultType === 'LLL') {
                 I_fault_pu = I1_pu;
@@ -597,7 +736,8 @@
                 I_fault_pu = Math.abs(I1_pu) + Math.abs(I2_pu) + Math.abs(I0_pu); 
             }
             
-            const I_base_A = (BASE_MVA * 1000) / (Math.sqrt(3) * BASE_KV_LINE);
+            // Convert to Amperes and MVA
+            const I_base_A = (BASE_MVA * 1000) / (Math.sqrt(3) * busData.find(b => b.id === faultBusId).kv_level);
             const I_fault_A = I_fault_pu * I_base_A;
             const MVA_sc = I_fault_pu * BASE_MVA;
 
@@ -612,10 +752,10 @@
 
 
         /**
-         * Runs Short Circuit analysis and updates display.
-         * NOTE: Converted to function declaration for global access.
+         * Initiates the Short Circuit simulation and updates the UI.
+         * Converted to function declaration for global access (used by HTML button).
          */
-        function runShortCircuit() { // FIX: Changed to function declaration
+        function runShortCircuit() { 
             const inputBus = parseInt(document.getElementById('faultBus').value);
             const faultType = document.getElementById('faultType').value;
             const faultBusId = inputBus;
@@ -629,6 +769,7 @@
                 return;
             }
 
+            // Display loading indicator
             scBody.innerHTML = `<tr><td colspan="2" class="text-center text-secondary py-4 flex items-center justify-center font-semibold">
                                     <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-secondary" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                                         <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
@@ -637,6 +778,7 @@
                                     Running **${faultType}** Short Circuit Analysis...
                                 </td></tr>`;
 
+            // Simulate calculation time and display results
             setTimeout(() => {
                 const results = shortCircuit(faultBusId, faultType);
                 displayShortCircuitResults(results);
@@ -644,18 +786,17 @@
         }
 
         
-        // --- Code Compliance and Sizing ---
+        // --- CODE COMPLIANCE & OPTIMIZATION ---
 
         /**
-         * Simulates Wire Sizing, Breaker Sizing, and Code Compliance Checks.
+         * Simulates Wire Sizing, Breaker Sizing, and Code Compliance Checks (PEC/PGC).
+         * Updates line data objects with compliance status.
          */
         function runCodeComplianceAndSizing(lfResults) {
             const complianceBody = document.getElementById('complianceBody');
-            const optimizationText = document.getElementById('optimizationText');
             const optimizationButton = document.getElementById('optimizeButton');
             complianceBody.innerHTML = '';
             
-            const I_base_A = (BASE_MVA * 1000) / (Math.sqrt(3) * BASE_KV_LINE);
             let codeViolationsCount = 0;
 
             // --- 1. Bus-Level Compliance (PGC Voltage & Harmonics) ---
@@ -667,7 +808,7 @@
                 <table class="min-w-full compliance-table text-sm">
                     <thead>
                         <tr class="bg-gray-200">
-                            <th>Bus ID</th>
+                            <th>Bus ID (kV)</th>
                             <th>V Mag. (p.u.)</th>
                             <th class="cursor-pointer" onclick="openCodeDetails('PGC_V')">PGC V Check</th>
                             <th class="cursor-pointer" onclick="openCodeDetails('PEC_VD')">PEC V Drop</th>
@@ -680,29 +821,31 @@
             
             lfResults.forEach(res => {
                 const bus = busData.find(b => b.id === res.id);
-                const V_drop_percent = bus.voltage_drop_percent;
-                const V_mag = res.V;
 
-                const isPGC_V_OK = V_mag >= VOLTAGE_LIMIT_MIN; 
-                const isPEC_VD_OK = V_drop_percent <= MAX_VOLTAGE_DROP_PERCENT;
+                // Compliance checks
+                const isPGC_V_OK = res.V >= VOLTAGE_LIMIT_MIN; 
+                const isPEC_VD_OK = bus.voltage_drop_percent <= MAX_VOLTAGE_DROP_PERCENT;
                 const isPGC_THD_OK = bus.thd_value <= HARMONIC_LIMIT_THD;
                 
                 if (!isPGC_V_OK || !isPEC_VD_OK || !isPGC_THD_OK) { codeViolationsCount++; }
 
-                // Load Current & Breaker Sizing (PEC 2.15.2.2)
+                // Breaker Sizing (Simplified: Calculate maximum load current based on base MVA)
+                const I_base_bus = (BASE_MVA * 1000) / (Math.sqrt(3) * bus.kv_level);
                 const S_load_pu = Math.sqrt(bus.P_load_base * bus.P_load_base + bus.Q_load_base * bus.Q_load_base);
-                const I_load_A = (S_load_pu / res.V) * I_base_A;
+                const I_load_A = (S_load_pu / res.V) * I_base_bus; 
                 const requiredBreakerRating = Math.ceil((I_load_A * BREAKER_SAFETY_MARGIN) / 10) * 10;
                 
+                let kvColorClass = `text-kv-${bus.kv_level.toString().replace('.', '')}`;
+
                 complianceTableHTML += `
                     <tr class="hover:bg-gray-50 cursor-pointer" onclick="openCodeDetails('BUS_SUMMARY', ${bus.id})">
-                        <td class="font-bold">${bus.id}</td>
-                        <td>${V_mag.toFixed(4)}</td>
+                        <td class="font-bold">Bus ${bus.id} <span class="${kvColorClass}">(${bus.kv_level}kV)</span></td>
+                        <td>${res.V.toFixed(4)}</td>
                         <td class="${isPGC_V_OK ? 'text-code-pass' : 'text-code-fail font-bold'}">
                             ${isPGC_V_OK ? 'PASS' : 'FAIL'}
                         </td>
                         <td class="${isPEC_VD_OK ? 'text-code-pass' : 'text-code-fail font-bold'}">
-                            ${isPEC_VD_OK ? 'PASS' : `FAIL (${V_drop_percent.toFixed(2)}%)`}
+                            ${isPEC_VD_OK ? 'PASS' : `FAIL (${bus.voltage_drop_percent.toFixed(2)}%)`}
                         </td>
                         <td class="${isPGC_THD_OK ? 'text-code-pass' : 'text-code-fail font-bold'}">
                             ${bus.thd_value.toFixed(2)}%
@@ -737,29 +880,35 @@
                     <tbody>
             `;
             
-            // Simplified SCA proxy: Average system fault current (15kA nominal)
-            const nominalSCkA = 15; 
+            const nominalSCkA = 15; // Simulated nominal system fault current (15kA standard)
             
             lineData.forEach(line => {
                 const currentACSR = ACSR_TYPES.find(t => t.code === line.wireType);
+                const fromBusKv = busData.find(b => b.id === line.from).kv_level;
+
                 if (!currentACSR) return; 
                 
-                // Extract Breaker kA Rating from model name (e.g., ABB VCB (31.5kA))
+                // Extract Breaker kA Rating from model name
                 const breakerMatch = line.breakerModel.match(/\(([\d\.]+)\s*kA\)/);
-                const breakerRatingkA = breakerMatch ? parseFloat(breakerMatch[1]) : 10; // Default to 10kA if not found
+                const breakerRatingkA = breakerMatch ? parseFloat(breakerMatch[1]) : 10; 
                 
-                // Line Current proxy (S_load from BUS/sqrt(3)*V_base)
-                const I_load_bus_pu = Math.sqrt(busData.find(b => b.id === line.from).P_load_base**2 + busData.find(b => b.id === line.from).Q_load_base**2);
-                const lineCurrentA = (I_load_bus_pu / 1.0) * I_base_A / 2; // Very simplified flow
+                // Simplified Line Current calculation based on base load and line kV
+                const I_base_bus = (BASE_MVA * 1000) / (Math.sqrt(3) * fromBusKv);
+                const S_load_bus_pu = Math.sqrt(busData.find(b => b.id === line.from).P_load_base**2 + busData.find(b => b.id === line.from).Q_load_base**2);
+                
+                const lineCurrentA = (S_load_bus_pu / 1.0) * I_base_bus / 2; // Very simplified flow distribution
                 const requiredAmpacity = lineCurrentA * BREAKER_SAFETY_MARGIN; 
                 
+                // Compliance Checks
                 const isWireAdequate = currentACSR.ampacity >= requiredAmpacity;
-                const isSCARatingOK = breakerRatingkA >= nominalSCkA; // SCA rating must exceed system fault level
+                const isSCARatingOK = breakerRatingkA >= nominalSCkA; 
                 
                 if (!isWireAdequate || !isSCARatingOK) { codeViolationsCount++; }
                 
-                const recommendedWire = ACSR_TYPES.find(t => t.ampacity >= requiredAmpacity) || ACSR_TYPES[ACSR_TYPES.length - 1]; 
-
+                // Determine recommended upgrade wire
+                const recommendedWireCode = findRecommendedWireCode(requiredAmpacity, line.wireType);
+                const recommendedWire = ACSR_TYPES.find(t => t.code === recommendedWireCode);
+                
                 line.isWireAdequate = isWireAdequate;
                 line.recommendedWire = recommendedWire.code;
                 line.requiredAmpacity = requiredAmpacity;
@@ -785,7 +934,7 @@
             complianceBody.innerHTML += wireSizingHTML;
             
             
-            // --- 3. Optimization Recommendation & Tracking ---
+            // --- 3. Optimization UI Update ---
             let optimizationMessage;
             
             if (!optimizationTrack.hasRun) {
@@ -823,12 +972,13 @@
             }
 
 
-            optimizationText.textContent = optimizationMessage;
+            document.getElementById('optimizationText').textContent = optimizationMessage;
             document.getElementById('complianceMessage').classList.add('hidden');
         }
 
         /**
          * Generates and displays the optimization summary after a fix is run.
+         * @param {number} postViolations - Violation count after optimization
          */
         function displayOptimizationSummary(postViolations) {
             const summaryDiv = document.getElementById('optimizationSummary');
@@ -875,52 +1025,48 @@
 
 
         /**
-         * Attempts to fix all detected PEC/PGC violations.
+         * Attempts to fix all detected PEC/PGC violations automatically.
          */
         function optimizeViolations() {
-            // Save current state for comparison
-            // NOTE: We rely on runCodeComplianceAndSizing setting preViolations before this function executes.
+            // Setup pre-optimization tracking
             optimizationTrack.preAvgV = busData.reduce((sum, b) => sum + b.V_result, 0) / NUM_BUSES;
             optimizationTrack.wireUpgrades = [];
             optimizationTrack.dgActions = [];
             optimizationTrack.drActions = [];
-            optimizationTrack.hasRun = false; // Indicate that the next run is post-optimization
+            optimizationTrack.hasRun = false; 
 
-            // We must re-run compliance checks internally to get fresh line.isWireAdequate status.
-            // Since we know the previous LF was successful (user pressed the LF button), we can re-run
-            // the compliance check now to ensure line.isWireAdequate and line.recommendedWire are accurate.
+            // Rerun compliance checks to ensure accurate `line.isWireAdequate` and `line.recommendedWire` values are set
             runCodeComplianceAndSizing(lfResults); 
 
             // 1. --- Apply Smart Grid Actions (V/THD fixes) ---
             
-            // Attempt to fix Voltage and THD using DG/DR
             let needsSmartGridFix = busData.some(b => b.V_result < 0.96 || b.thd_value > HARMONIC_LIMIT_THD);
 
             if (needsSmartGridFix) {
                 
-                // DG Actions (Turn off DG helps THD; turn on helps V)
-                busData.filter(b => b.DG_capacity > 0 && bus.DG_status === 'Off').forEach(bus => {
-                    bus.DG_status = 'On';
+                // DG Actions: Activate DG and set appropriate Q control for low voltage buses
+                busData.filter(b => b.DG_capacity > 0 && b.DG_status === 'Off').forEach(b => {
+                    b.DG_status = 'On';
                     
-                    if (bus.V_result < VOLTAGE_LIMIT_MIN) {
-                         bus.DG_Q_mode = 'Boost V'; // Prioritize voltage boost
+                    if (b.V_result < VOLTAGE_LIMIT_MIN) {
+                         b.DG_Q_mode = 'Boost V'; // Inject Q to raise voltage
                     } else {
-                         bus.DG_Q_mode = 'Unity'; // Default to Unity for stability/THD indirect benefit
+                         b.DG_Q_mode = 'Unity'; // Default to Unity PF
                     }
                     
                     optimizationTrack.dgActions.push({
-                        busId: bus.id,
-                        newStatus: bus.DG_status,
-                        newQMode: bus.DG_Q_mode
+                        busId: b.id,
+                        newStatus: b.DG_status,
+                        newQMode: b.DG_Q_mode
                     });
                 });
 
-                // DR Actions (Apply load reduction if voltage is severely low)
-                 busData.filter(b => b.DR_enabled && b.DR_reduction === 0.0 && b.V_result < 0.96).forEach(bus => {
-                    bus.DR_reduction = bus.P_load_base * 0.3; // Apply 30% reduction to help voltage
+                // DR Actions: Apply load reduction to severely low voltage buses
+                 busData.filter(b => b.DR_enabled && b.DR_reduction === 0.0 && b.V_result < 0.96).forEach(b => {
+                    b.DR_reduction = b.P_load_base * 0.3; // 30% load reduction
                     optimizationTrack.drActions.push({
-                        busId: bus.id,
-                        reduction: bus.DR_reduction
+                        busId: b.id,
+                        reduction: b.DR_reduction
                     });
                 });
             }
@@ -931,15 +1077,13 @@
                 const currentACSR = ACSR_TYPES.find(t => t.code === line.wireType);
                 let upgradeNeeded = false;
                 
-                // Track current wire name for summary
                 const oldWireName = currentACSR ? currentACSR.name : 'Unknown';
-                //const oldBreakerName = line.breakerModel; // Not used but kept for context
 
                 // A. Wire Sizing Fix (Ampacity/Voltage Drop)
                 if (!line.isWireAdequate && line.recommendedWire) {
-                    // CRITICAL FIX: Upgrade the wire type using the pre-calculated recommendation
+                    // Upgrade the wire type using the pre-calculated recommendation
                     line.wireType = line.recommendedWire;
-                    recalculateLineImpedance(line.id, line.recommendedWire);
+                    recalculateLineImpedance(line.id, line.wireType); // Recalculate R/X values based on new wire
                     upgradeNeeded = true;
                 }
 
@@ -947,8 +1091,8 @@
                 const breakerMatch = line.breakerModel.match(/\(([\d\.]+)\s*kA\)/);
                 const breakerRatingkA = breakerMatch ? parseFloat(breakerMatch[1]) : 10;
                 
-                if (breakerRatingkA < 40) { // If breaker rating is below high standard, upgrade
-                    line.breakerModel = 'GE SF6 (40kA)';
+                if (breakerRatingkA < 40) { // If breaker rating is below a reliable standard, upgrade
+                    line.breakerModel = 'GE SF6 VCB (40kA)'; 
                     line.recloserModel = '79 (Reclosing)'; // Upgrade relay for better resilience
                     upgradeNeeded = true;
                 }
@@ -964,30 +1108,35 @@
                 }
             });
 
-            // Re-render controls and re-run Load Flow
+            // Re-render config UI and re-run Load Flow to see the effects of optimization
             displayLineConfiguration(); 
+            displayXfmrConfiguration(); 
             displayBusEditing(); 
-            runLoadFlow(); // This final run will perform the Load Flow with the optimized parameters and re-run the compliance check one last time.
+            runLoadFlow(); 
         }
 
         // --- Charting ---
 
         /**
          * Renders the voltage magnitude profile chart using Chart.js.
+         * @param {Array<object>} results - Load flow results.
+         * @param {string} method - LF method used.
          */
         function renderVoltageProfileChart(results, method) {
             const ctx = document.getElementById('voltageProfileChart');
             // Show the container after data is ready
             document.getElementById('voltageProfileChart').closest('.p-4').classList.remove('hidden'); 
 
-            const labels = results.map(r => `Bus ${r.id}`);
+            const labels = results.map(r => `B${r.id} (${busData.find(b=>b.id===r.id).kv_level}kV)`);
             const data = results.map(r => r.V);
+            // Define colors based on compliance status
             const backgroundColors = data.map(V => {
-                if (V < 0.93) return 'rgba(239, 68, 68, 0.7)'; // Red
-                if (V < 0.97) return 'rgba(251, 191, 36, 0.7)'; // Yellow
-                return 'rgba(16, 185, 129, 0.7)'; // Green
+                if (V < 0.93) return 'rgba(239, 68, 68, 0.7)'; // Red (Critical)
+                if (V < 0.97) return 'rgba(251, 191, 36, 0.7)'; // Yellow (Low)
+                return 'rgba(16, 185, 129, 0.7)'; // Green (Good)
             });
 
+            // Destroy existing chart instance to prevent memory leaks/redraw issues
             if (voltageChartInstance) {
                 voltageChartInstance.destroy();
             }
@@ -1051,7 +1200,13 @@
             });
         }
 
-        // --- Modal Control ---
+        // --- MODAL AND UI HELPERS ---
+
+        /**
+         * Opens the modal popup with technical explanations based on the type.
+         * @param {string} type - Identifier for the content to display (e.g., 'PGC_V', 'ANSI_CODE_EXPLANATION').
+         * @param {number} [busId=null] - Optional bus ID for context-specific details.
+         */
         function openCodeDetails(type, busId = null) {
             const modal = document.getElementById('technicalModal');
             const title = document.getElementById('modalTitle');
@@ -1103,7 +1258,7 @@
                     break;
                  case 'BUS_SUMMARY':
                     const bus = busData.find(b => b.id === busId);
-                    modalTitle = `Bus ${busId} Status Summary`;
+                    modalTitle = `Bus ${busId} Status Summary (${bus.kv_level}kV)`;
                     modalContent = `<p><strong>Load Type:</strong> ${bus.load_type}</p>
                                     <p><strong>P Load (Base):</strong> ${bus.P_load_base} p.u.</p>
                                     <p><strong>DG Status:</strong> ${bus.DG_status} (Q-Control: ${bus.DG_Q_mode})</p>
@@ -1123,6 +1278,7 @@
             document.getElementById('modalContent').classList.add('scale-100');
         }
 
+        /** Closes the technical details modal. */
         function closeModal() {
             const modal = document.getElementById('technicalModal');
             document.getElementById('modalContent').classList.add('scale-95');
@@ -1131,32 +1287,67 @@
                 modal.classList.add('hidden');
             }, 300);
         }
+        
+        /** Toggles visibility between Line and Transformer configuration tabs. */
+        function showConfig(panel) {
+            const linePanel = document.getElementById('lineConfigPanel');
+            const xfmrPanel = document.getElementById('xfmrConfigPanel');
+            const tabLine = document.getElementById('configTabLines');
+            const tabXfmr = document.getElementById('configTabXfmr');
 
-        // --- Data Initialization and UI Helpers ---
+            if (panel === 'lines') {
+                linePanel.classList.remove('hidden');
+                xfmrPanel.classList.add('hidden');
+                tabLine.classList.add('border-primary', 'text-primary');
+                tabLine.classList.remove('border-transparent', 'text-gray-500');
+                tabXfmr.classList.add('border-transparent', 'text-gray-500');
+                tabXfmr.classList.remove('border-primary', 'text-primary');
+            } else {
+                linePanel.classList.add('hidden');
+                xfmrPanel.classList.remove('hidden');
+                tabXfmr.classList.add('border-primary', 'text-primary');
+                tabXfmr.classList.remove('border-transparent', 'text-gray-500');
+                tabLine.classList.add('border-transparent', 'text-gray-500');
+                tabLine.classList.remove('border-primary', 'text-primary');
+            }
+        }
+
+
+        // --- DATA INITIALIZATION ---
 
         /**
-         * Initializes the 15-Bus system data, including Smart Grid features.
+         * Initializes all system data: buses (with kV levels), coordinates, lines, and transformers.
          */
         function initializeSystemData() {
             busData = [];
             lineData = [];
+            xfmrData = [];
             busCoordinates = [];
             
-            // 1. Bus Data Initialization
+            // Define fixed kV assignment for 15 buses
+            const kvAssignment = {
+                1: 69.0, 2: 69.0, 3: 69.0, 4: 69.0, 
+                7: 34.5, 8: 34.5, 9: 34.5, 10: 34.5,
+                5: 13.8, 6: 13.8, 11: 13.8, 12: 13.8, 13: 13.8, 14: 13.8, 15: 13.8
+            };
+
+            // 1. Bus Data Initialization (PQ, PV, Slack types)
             for (let i = 1; i <= NUM_BUSES; i++) {
                 let type = 'PQ';
                 let Pgen = 0.0;
                 let V_init = 1.0;
+                const kvLevel = kvAssignment[i] || 13.8;
 
                 if (i === 1) {
-                    type = 'Slack';
+                    type = 'Slack'; // Bus 1 is the Slack bus (reference)
                     V_init = 1.000;
                 } else if (i === 2) {
-                    type = 'PV';
+                    type = 'PV'; // Bus 2 is a PV (Generator/Setpoint) bus
                     Pgen = parseFloat((Math.random() * 1.5 + 1.0).toFixed(3));
                     V_init = 1.05;
                 }
                 
+                // Assign random base loads and load types
                 const loadMultiplier = 1 + (i / NUM_BUSES) * 0.5;
                 const P_load_base = parseFloat(((Math.random() * 1.0 + 0.1) * loadMultiplier).toFixed(3));
                 const Q_load_base = parseFloat(((Math.random() * 0.5 + 0.1) * loadMultiplier).toFixed(3));
@@ -1176,10 +1367,11 @@
                     delta: 0.0,
                     V_result: V_init,
                     voltage_drop_percent: 0.0,
-                    // Technical/Smart Grid Features:
+                    kv_level: kvLevel,
+                    // Smart Grid/Compliance fields
                     load_type: load_type,
                     thd_base: thd_base,
-                    thd_value: thd_base, // Initial THD
+                    thd_value: thd_base,
                     DG_status: (i === 4 || i === 12) ? 'Off' : 'N/A', 
                     DG_capacity: (i === 4 || i === 12) ? 1.5 : 0.0,
                     DG_Q_mode: 'Unity', 
@@ -1188,14 +1380,14 @@
                 });
             }
             
-            // 2. Define Bus Coordinates (SVG width 1000, height 400)
+            // 2. Bus Coordinates for SVG display
             const busCoordsMap = {
                 1: { x: 50, y: 50 },    2: { x: 950, y: 50 },
                 3: { x: 300, y: 150 },  4: { x: 700, y: 150 },
-                5: { x: 100, y: 250 },  6: { x: 250, y: 300 },
+                5: { x: 100, y: 350 },  6: { x: 250, y: 300 },
                 7: { x: 450, y: 200 },  8: { x: 550, y: 200 },
                 9: { x: 750, y: 300 },  10: { x: 900, y: 250 },
-                11: { x: 50, y: 350 },  12: { x: 200, y: 350 },
+                11: { x: 50, y: 250 },  12: { x: 200, y: 350 },
                 13: { x: 400, y: 350 }, 14: { x: 600, y: 350 },
                 15: { x: 800, y: 350 }
             };
@@ -1203,23 +1395,79 @@
             for (let i = 1; i <= NUM_BUSES; i++) {
                 busCoordinates.push({ id: i, x: busCoordsMap[i].x, y: busCoordsMap[i].y });
             }
-
-            // 3. Line/Branch Data Initialization
-            const connections = [
-                [1, 3], [2, 4], [3, 7], [4, 8], [7, 8], [8, 9], [7, 6], [9, 10], 
-                [5, 11], [11, 12], [12, 6], [6, 5], [9, 14], [14, 15], [15, 10], [10, 9],
-                [1, 5], [2, 10], [3, 6], [4, 9], [5, 12], [6, 13], [7, 14], [8, 15],
-                [13, 14], [12, 13], [11, 12], [10, 15], [3, 13], [4, 14], [1, 11], [2, 15]
-            ];
             
-            connections.slice(0, NUM_LINES).forEach((conn, index) => {
-                const [fromBus, toBus] = conn;
+            // 3. Transformer Data Initialization (7 Banks connecting different kV levels)
+            const xfmrConnections = [
+                { from: 3, to: 7, primaryKv: 69.0, secondaryKv: 34.5 },
+                { from: 4, to: 8, primaryKv: 69.0, secondaryKv: 34.5 },
+                { from: 7, to: 6, primaryKv: 34.5, secondaryKv: 13.8 },
+                { from: 8, to: 5, primaryKv: 34.5, secondaryKv: 13.8 },
+                { from: 9, to: 14, primaryKv: 34.5, secondaryKv: 13.8 },
+                { from: 1, to: 11, primaryKv: 69.0, secondaryKv: 13.8 }, 
+                { from: 2, to: 15, primaryKv: 69.0, secondaryKv: 13.8 }  
+            ];
+
+            xfmrConnections.forEach((conn, index) => {
+                const spec = XFMR_SPECS[index % XFMR_SPECS.length]; 
+                // Calculate Xfmr Impedance in p.u. on the 100 MVA base
+                const X_pu = (spec.Z_percent / 100) * (BASE_MVA / spec.rating);
+                const R_pu = 0.001 * (BASE_MVA / spec.rating); // Small assumed resistance
+
+                xfmrData.push({
+                    id: index + 1,
+                    from: conn.from,
+                    to: conn.to,
+                    kv_h: conn.primaryKv,
+                    kv_x: conn.secondaryKv,
+                    MVA: spec.rating,
+                    Z_pu: parseFloat(Math.sqrt(R_pu * R_pu + X_pu * X_pu).toFixed(5)),
+                    R_pu: parseFloat(R_pu.toFixed(5)),
+                    X_pu: parseFloat(X_pu.toFixed(5)),
+                    spec: spec.code,
+                    active: true
+                });
+            });
+
+            // 4. Line/Branch Data Initialization (32 Lines connecting same kV levels)
+            const allConnections = [
+                // 69kV Links 
+                { from: 1, to: 2, kv: 69.0 }, { from: 1, to: 3, kv: 69.0 }, 
+                { from: 2, to: 4, kv: 69.0 }, { from: 3, to: 4, kv: 69.0 }, 
+                { from: 1, to: 4, kv: 69.0 }, { from: 2, to: 3, kv: 69.0 }, 
+                
+                // 34.5kV Links 
+                { from: 7, to: 9, kv: 34.5 }, { from: 7, to: 10, kv: 34.5 }, 
+                { from: 8, to: 9, kv: 34.5 }, { from: 8, to: 10, kv: 34.5 }, 
+                { from: 7, to: 8, kv: 34.5 }, { from: 9, to: 10, kv: 34.5 }, 
+                
+                // 13.8kV Distribution Feeder Links (Denser connections)
+                { from: 5, to: 11, kv: 13.8 }, { from: 5, to: 6, kv: 13.8 }, 
+                { from: 6, to: 12, kv: 13.8 }, { from: 6, to: 13, kv: 13.8 }, 
+                { from: 11, to: 12, kv: 13.8 }, { from: 12, to: 13, kv: 13.8 }, 
+                { from: 13, to: 14, kv: 13.8 }, { from: 14, to: 15, kv: 13.8 },
+                { from: 5, to: 12, kv: 13.8 }, { from: 11, to: 6, kv: 13.8 }, 
+                { from: 13, to: 5, kv: 13.8 }, { from: 14, to: 6, kv: 13.8 },
+                { from: 15, to: 12, kv: 13.8 }, { from: 11, to: 13, kv: 13.8 }, 
+                { from: 12, to: 14, kv: 13.8 }, { from: 13, to: 15, kv: 13.8 },
+                { from: 5, to: 14, kv: 13.8 }, { from: 6, to: 15, kv: 13.8 },
+                { from: 11, to: 15, kv: 13.8 },
+                
+            ].filter(c => kvAssignment[c.from] === kvAssignment[c.to]); 
+
+            // Initialize 32 line entries with random ACSR types and protection
+            allConnections.slice(0, NUM_LINES).forEach((conn, index) => {
+                const [fromBus, toBus] = [conn.from, conn.to];
+                const fromKv = kvAssignment[fromBus];
+                
                 const acsrType = ACSR_TYPES[Math.floor(Math.random() * ACSR_TYPES.length)];
                 
-                const Z_BASE_KV_LINE = (BASE_KV_LINE * BASE_KV_LINE) / BASE_MVA;
+                // Calculate Z_base specific to the line's kV level
+                const Z_BASE_KV = calculateZBase(fromKv);
                 const assumedLengthKm = 5;
 
-                const R_pu = parseFloat((acsrType.R_DC * assumedLengthKm / Z_BASE_KV_LINE).toFixed(6));
+                // Calculate R_pu and X_pu based on line's own kV base
+                const R_pu_ohm = acsrType.R_DC * assumedLengthKm;
+                const R_pu = parseFloat((R_pu_ohm / Z_BASE_KV).toFixed(6));
                 const X_pu = parseFloat((R_pu * acsrType.X_R_ratio).toFixed(6));
 
                 lineData.push({
@@ -1234,26 +1482,35 @@
                     wireType: acsrType.code,
                     active: true,
                     breakerModel: BREAKER_MODELS[Math.floor(Math.random() * BREAKER_MODELS.length)],
-                    recloserModel: ANSI_RELAYS[Math.floor(Math.random() * ANSI_RELAYS.length)], // Use ANSI Relay
+                    recloserModel: ANSI_RELAYS[Math.floor(Math.random() * ANSI_RELAYS.length)],
                     isWireAdequate: true, 
                     recommendedWire: null 
                 });
             });
 
-            // Display configuration panels
+            // Update UI panels with initialized data
             displayLineConfiguration();
+            displayXfmrConfiguration();
             displayBusEditing();
         }
 
-
+        /**
+         * Recalculates R_pu and X_pu for a line when wire type is changed.
+         * @param {number} lineId - ID of the line to update.
+         * @param {string} newWireType - New ACSR code.
+         */
         function recalculateLineImpedance(lineId, newWireType) {
             const line = lineData.find(l => l.id === lineId);
             const acsrType = ACSR_TYPES.find(t => t.code === newWireType);
-            const Z_BASE = (BASE_KV_LINE * BASE_KV_LINE) / BASE_MVA;
+            const fromBusKv = busData.find(b => b.id === line.from).kv_level;
+            
+            const Z_BASE_KV = calculateZBase(fromBusKv);
             const assumedLengthKm = 5; 
 
             if (line && acsrType) {
-                const R_pu = parseFloat((acsrType.R_DC * assumedLengthKm / Z_BASE).toFixed(6));
+                // Calculate impedance components on the line's specific kV base
+                const R_pu_ohm = acsrType.R_DC * assumedLengthKm;
+                const R_pu = parseFloat((R_pu_ohm / Z_BASE_KV).toFixed(6));
                 const X_pu = parseFloat((R_pu * acsrType.X_R_ratio).toFixed(6));
 
                 line.R_pu = R_pu;
@@ -1265,10 +1522,13 @@
             }
         }
 
-
+        /**
+         * Updates line, transformer, or bus parameters based on user input.
+         */
         function updateSystemParameter(id, key, value) {
             const numValue = parseFloat(value);
             
+            // Handle Bus Parameters (P, Q, V, DR, DG)
             if (key === 'P_gen' || key === 'V' || key === 'P_load_base' || key === 'Q_load_base' || key === 'DR_reduction') {
                 const bus = busData.find(b => b.id === id);
                 if (bus && !isNaN(numValue)) {
@@ -1279,6 +1539,7 @@
                  if (bus) {
                      bus[key] = value;
                  }
+            // Handle Line Parameters (R, X, Wire Type, Breaker/Relay)
             } else {
                 const line = lineData.find(l => l.id === id);
                 if (!line) return;
@@ -1303,175 +1564,49 @@
                 }
             }
         }
-
-        /**
-         * Populates the bus parameter editing panel with DG/DR controls.
-         */
-        function displayBusEditing() {
-            const editDiv = document.getElementById('busParameterEditing');
-            editDiv.innerHTML = '';
-            
-            const busInputs = busData.map(bus => {
-                const isSlack = bus.type === 'Slack';
-                
-                let inputHTML = '';
-                let busWrapperClasses = "bg-gray-50 p-3 rounded-xl border border-gray-200 space-y-2 shadow-sm"; 
-                
-                let loadFields = `
-                    <div class="flex space-x-2">
-                        <div class="flex-1 space-y-1">
-                            <label class="block text-xs font-medium text-gray-600">P Load</label>
-                            <input type="number" value="${bus.P_load_base.toFixed(3)}" step="0.01" min="0" 
-                                class="w-full config-input text-sm" onchange="updateSystemParameter(${bus.id}, 'P_load_base', this.value)">
-                        </div>
-                        <div class="flex-1 space-y-1">
-                            <label class="block text-xs font-medium text-gray-600">Q Load</label>
-                            <input type="number" value="${bus.Q_load_base.toFixed(3)}" step="0.01" min="0"
-                                class="w-full config-input text-sm" onchange="updateSystemParameter(${bus.id}, 'Q_load_base', this.value)">
-                        </div>
-                    </div>
-                `;
-
-                if (isSlack) {
-                     inputHTML = `<label class="block text-xs font-bold text-text-dark">Bus ${bus.id} (Slack)</label><span class="text-xs text-gray-500 block text-center pt-2">V and &delta; are fixed.</span>`;
-                     busWrapperClasses += " flex flex-col justify-center items-center h-full";
-                } else {
-                    let smartGridFields = '';
-                    
-                    if (bus.type === 'PV') {
-                         loadFields = `
-                            <div class="flex space-x-2">
-                                <div class="flex-1 space-y-1">
-                                    <label class="block text-xs font-medium text-gray-600">P Gen</label>
-                                    <input type="number" value="${bus.P_gen.toFixed(3)}" step="0.01" min="0" 
-                                        class="w-full config-input text-sm" onchange="updateSystemParameter(${bus.id}, 'P_gen', this.value)">
-                                </div>
-                                <div class="flex-1 space-y-1">
-                                    <label class="block text-xs font-medium text-gray-600">V Set</label>
-                                    <input type="number" value="${bus.V.toFixed(3)}" step="0.001" min="0.95" max="1.10"
-                                        class="w-full config-input text-sm" onchange="updateSystemParameter(${bus.id}, 'V', this.value)">
-                                </div>
-                            </div>
-                        `;
-                    }
-                    
-                    // DG Control
-                    if (bus.DG_capacity > 0) {
-                        smartGridFields += `
-                            <div class="space-y-1 pt-2 border-t border-gray-200">
-                                <label class="block text-xs font-bold text-accent-blue">DG Control (Bus ${bus.id})</label>
-                                <label class="block text-xs font-medium text-gray-600">DG Status (Cap: ${bus.DG_capacity} p.u.)</label>
-                                <select class="line-select" onchange="updateSystemParameter(${bus.id}, 'DG_status', this.value)">
-                                    <option value="On" ${bus.DG_status === 'On' ? 'selected' : ''}>ON</option>
-                                    <option value="Off" ${bus.DG_status === 'Off' ? 'selected' : ''}>OFF</option>
-                                </select>
-                                <label class="block text-xs font-medium text-gray-600">Q Control</label>
-                                <select class="line-select" onchange="updateSystemParameter(${bus.id}, 'DG_Q_mode', this.value)">
-                                    <option value="Unity" ${bus.DG_Q_mode === 'Unity' ? 'selected' : ''}>Unity (PF=1)</option>
-                                    <option value="Boost V" ${bus.DG_Q_mode === 'Boost V' ? 'selected' : ''}>Boost V (+Q)</option>
-                                    <option value="Absorb Q" ${bus.DG_Q_mode === 'Absorb Q' ? 'selected' : ''}>Absorb Q (-Q)</option>
-                                </select>
-                            </div>
-                        `;
-                    }
-
-                    // DR Control
-                    if (bus.DR_enabled) {
-                        smartGridFields += `
-                            <div class="space-y-1 pt-2 ${bus.DG_capacity > 0 ? '' : 'border-t border-gray-200'}">
-                                <label class="block text-xs font-bold text-accent-blue">Demand Response (Bus ${bus.id})</label>
-                                <label class="block text-xs font-medium text-gray-600">P Reduction (p.u.)</label>
-                                <input type="number" value="${bus.DR_reduction.toFixed(3)}" step="0.01" min="0" max="${bus.P_load_base * 0.5}"
-                                    class="w-full config-input text-sm" onchange="updateSystemParameter(${bus.id}, 'DR_reduction', this.value)">
-                            </div>
-                        `;
-                    }
-
-
-                     inputHTML = `
-                        <label class="block text-xs font-bold text-text-dark">${bus.id}. ${bus.load_type}</label>
-                        ${loadFields}
-                        ${smartGridFields}
-                    `;
-                }
-                return `<div class="${busWrapperClasses}">${inputHTML}</div>`;
-            }).join('');
-
-            editDiv.innerHTML = busInputs;
-        }
         
-        /**
-         * Populates the line configuration panel with toggles and editable R/X inputs, plus protection.
-         */
-        function displayLineConfiguration() {
-            const configDiv = document.getElementById('lineConfiguration');
-            configDiv.innerHTML = '';
-
-            const sortedACSRTypes = ACSR_TYPES.map(type => ({
-                code: type.code,
-                displayName: type.name
-            })).sort((a, b) => a.displayName.localeCompare(b.displayName));
-            
-            const getBreakerSelect = (line) => `
-                 <select class="line-select" onchange="updateSystemParameter(${line.id}, 'breakerModel', this.value)">
-                    ${BREAKER_MODELS.map(model => 
-                        `<option value="${model}" ${line.breakerModel === model ? 'selected' : ''}>${model}</option>`
-                    ).join('')}
-                </select>
-            `;
-
-            const getRelaySelect = (line) => `
-                 <select class="line-select" onchange="updateSystemParameter(${line.id}, 'recloserModel', this.value)">
-                    ${ANSI_RELAYS.map(relay => 
-                        `<option value="${relay}" ${line.recloserModel === relay ? 'selected' : ''}>${relay}</option>`
-                    ).join('')}
-                </select>
-            `;
-
-            lineData.forEach(line => {
-                const selectElement = `
-                    <select class="line-select" onchange="updateSystemParameter(${line.id}, 'wireType', this.value)">
-                        ${sortedACSRTypes.map(type => 
-                            `<option value="${type.code}" ${line.wireType === type.code ? 'selected' : ''}>${type.displayName}</option>`
-                        ).join('')}
-                    </select>
-                `;
-
-                configDiv.innerHTML += `
-                    <div class="line-item-full">
-                        ${selectElement}
-
-                        <input type="number" value="${line.from}" min="1" max="${NUM_BUSES}" 
-                            class="config-input text-center text-sm" 
-                            onchange="updateSystemParameter(${line.id}, 'from', this.value)" title="From Bus">
-                        
-                        <input type="number" value="${line.to}" min="1" max="${NUM_BUSES}" 
-                            class="config-input text-center text-sm" 
-                            onchange="updateSystemParameter(${line.id}, 'to', this.value)" title="To Bus">
-                        
-                        <input type="number" value="${line.R_user.toFixed(4)}" step="0.0001" min="0" 
-                            class="config-input text-right" 
-                            onchange="updateSystemParameter(${line.id}, 'R_user', this.value)" title="Resistance (p.u.)">
-                        
-                        <input type="number" value="${line.X_user.toFixed(4)}" step="0.0001" min="0" 
-                            class="config-input text-right" 
-                            onchange="updateSystemParameter(${line.id}, 'X_user', this.value)" title="Reactance (p.u.)">
-                        
-                        ${getBreakerSelect(line)}
-                        ${getRelaySelect(line)}
-                        
-                        <label class="relative inline-flex items-center cursor-pointer justify-center">
-                            <input type="checkbox" ${line.active ? 'checked' : ''} class="sr-only peer" 
-                                   onchange="toggleLineActive(${line.id}, this.checked); displayNetworkTopology(lfResults);">
-                            <div class="w-7 h-4 bg-gray-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-primary"></div>
-                        </label>
-                    </div>
-                `;
-            });
+        /** Toggles the active status of a line. */
+        function toggleLineActive(lineId, isActive) {
+            const line = lineData.find(l => l.id === lineId);
+            if (line) {
+                line.active = isActive;
+            }
         }
 
-        // --- Existing UI Display Functions ---
+        /**
+         * Updates Transformer parameters (MVA rating).
+         * @param {number} id - Transformer ID.
+         * @param {string} key - Parameter key ('MVA').
+         * @param {string} value - New MVA value.
+         */
+        function updateXfmrParameter(id, key, value) {
+            const xfmr = xfmrData.find(x => x.id === id);
+            if (!xfmr) return;
 
+            if (key === 'MVA') {
+                const newMVA = parseInt(value);
+                const spec = XFMR_SPECS.find(s => s.rating === newMVA);
+
+                if (spec) {
+                    xfmr.MVA = newMVA;
+                    // Recalculate p.u. impedance on the common 100 MVA base
+                    const X_pu = (spec.Z_percent / 100) * (BASE_MVA / newMVA);
+                    const R_pu = 0.001 * (BASE_MVA / newMVA); 
+                    
+                    xfmr.R_pu = parseFloat(R_pu.toFixed(5));
+                    xfmr.X_pu = parseFloat(X_pu.toFixed(5));
+                    xfmr.Z_pu = parseFloat(Math.sqrt(xfmr.R_pu * xfmr.R_pu + xfmr.X_pu * xfmr.X_pu).toFixed(5));
+                    
+                    displayXfmrConfiguration(); 
+                    displayNetworkTopology(lfResults);
+                }
+            }
+        }
+
+
+        // --- UI DISPLAY FUNCTIONS ---
+
+        /** Renders the load flow results table. */
         function displayLoadFlowResults(results, method) {
             const table = document.getElementById('lfTable');
             const lfMessage = document.getElementById('lfMessage');
@@ -1492,12 +1627,8 @@
 
             results.forEach(res => {
                 const bus = busData.find(b => b.id === res.id);
-                let colorClass = 'text-code-pass';
-
-                if (res.V < 0.97) { colorClass = 'text-yellow-600 font-semibold'; }
-                if (res.V < 0.93) { colorClass = 'text-red-600 font-bold'; }
-                if (res.V > 1.04) { colorClass = 'text-primary font-semibold'; }
-                
+                // Color coding based on voltage level
+                let colorClass = (res.V < 0.93) ? 'text-red-600 font-bold' : (res.V < 0.97) ? 'text-yellow-600 font-semibold' : (res.V > 1.04) ? 'text-primary font-semibold' : 'text-code-pass';
                 const thdColorClass = bus.thd_value <= HARMONIC_LIMIT_THD ? 'text-code-pass' : 'text-code-fail font-bold';
                 
                 tableHTML += `
@@ -1526,6 +1657,7 @@
             }
         }
         
+        /** Renders the iterative load flow convergence data. (Omitted for brevity in this comment block) */
         function displayIterativeResults() { 
             const messageDiv = document.getElementById('lfIterativeMessage');
             
@@ -1588,6 +1720,355 @@
             messageDiv.innerHTML = htmlContent;
         }
 
+        /** Renders the short circuit results table. */
+        function displayShortCircuitResults(results) {
+            const scBody = document.getElementById('scBody');
+            
+            const faultNames = {
+                'LLL': 'Three-Phase Bolted Fault (L-L-L)',
+                'SLG': 'Single-Line-to-Ground Fault (L-G)',
+                'LL': 'Line-to-Line Fault (L-L)',
+                'LLG': 'Double-Line-to-Ground Fault (L-L-G)'
+            };
+
+            // HTML uses standard subscripts (e.g., V<sub>f</sub>) for readability
+            scBody.innerHTML = `
+                <tr><td>Faulted Bus ID</td><td>${results.busId}</td></tr>
+                <tr><td>Fault Type</td><td>${faultNames[results.faultType]}</td></tr>
+                <tr><td>Pre-Fault Voltage (V<sub class="text-xs">f</sub>)</td><td>${lfResults ? lfResults.find(r => r.id === results.busId).V.toFixed(4) : 'N/A'} p.u.</td></tr>
+                
+                <tr class="bg-gray-100"><td colspan="2" class="font-bold text-center">Sequence Impedances (p.u.) (Simulated)</td></tr>
+                <tr><td>Positive Sequence (Z<sub class="text-xs">1</sub>)</td><td>Simulated: Variable</td></tr>
+                <tr><td>Negative Sequence (Z<sub class="text-xs">2</sub>)</td><td>Simulated: Variable</td></tr>
+                <tr><td>Zero Sequence (Z<sub class="text-xs">0</sub>)</td><td>Simulated: Variable</td></tr>
+
+                <tr class="bg-gray-100"><td colspan="2" class="font-bold text-center">Sequence Currents (I) (p.u.) (Simulated)</td></tr>
+                <tr><td>Positive Sequence (I<sub class="text-xs">1</sub>)</td><td>Simulated: Variable</td></tr>
+                <tr><td>Negative Sequence (I<sub class="text-xs">2</sub>)</td><td>Simulated: Variable</td></tr>
+                <tr><td>Zero Sequence (I<sub class="text-xs">0</sub>)</td><td>Simulated: Variable</td></tr>
+                
+                <tr class="bg-gray-100"><td colspan="2" class="font-bold text-center">Fault Results</td></tr>
+                <tr><td>**Fault Current (Amperes)**</td><td class="text-secondary">${results.I_fault_A}</td></tr>
+                <tr><td>**Short Circuit MVA (MVA<sub class="text-xs">sc</sub>)**</td><td class="text-secondary">${results.MVA_sc}</td></tr>
+            `;
+
+             document.getElementById('shortCircuitResults').insertAdjacentHTML('afterbegin', `<p class="text-sm text-center text-primary mb-2 font-medium">
+                Short Circuit analysis completed for a bolted **${results.faultType}** fault at Bus ${results.busId}.
+             </p>`);
+        }
+        
+        /** Renders the network topology visualization (SVG) showing lines, transformers, and colored buses. */
+        function displayNetworkTopology(results = null) {
+            const svg = document.getElementById('networkSVG');
+            if (!svg) return; 
+            
+            const svgWidth = svg.clientWidth || 1000;
+            const svgHeight = svg.clientHeight || 400;
+            svg.setAttribute('viewBox', `0 0 1000 400`);
+            svg.innerHTML = ''; 
+
+            // 1. Draw Lines (Wires)
+            lineData.forEach(line => {
+                const fromCoords = busCoordinates.find(b => b.id === line.from);
+                const toCoords = busCoordinates.find(b => b.id === line.to);
+
+                if (!fromCoords || !toCoords) return; 
+
+                let lineStroke = line.active ? '#374151' : '#d1d5db'; 
+                let lineDash = line.active ? 'none' : '4';
+                let lineOpacity = line.active ? 1.0 : 0.5;
+
+                svg.innerHTML += `
+                    <line x1="${fromCoords.x}" y1="${fromCoords.y}" x2="${toCoords.x}" y2="${toCoords.y}"
+                          stroke="${lineStroke}" stroke-width="2" stroke-dasharray="${lineDash}" opacity="${lineOpacity}" 
+                          title="Line ${line.id}: ${line.from}-${line.to} (${line.wireType})" />
+                `;
+            });
+
+            // 2. Draw Transformers (thick orange dashed lines)
+            xfmrData.forEach(xfmr => {
+                const fromCoords = busCoordinates.find(b => b.id === xfmr.from);
+                const toCoords = busCoordinates.find(b => b.id === xfmr.to);
+
+                if (!fromCoords || !toCoords) return;
+
+                svg.innerHTML += `
+                    <line x1="${fromCoords.x}" y1="${fromCoords.y}" x2="${toCoords.x}" y2="${toCoords.y}"
+                          stroke="var(--tw-colors-secondary)" stroke-width="4" stroke-dasharray="8 4" opacity="0.8" 
+                          title="XFMR ${xfmr.id}: ${xfmr.kv_h}kV -> ${xfmr.kv_x}kV (${xfmr.MVA}MVA)" />
+                    <!-- Midpoint circle symbol -->
+                    <circle cx="${(fromCoords.x + toCoords.x) / 2}" cy="${(fromCoords.y + toCoords.y) / 2}" r="6" 
+                            fill="var(--tw-colors-secondary)" stroke="white" stroke-width="2" 
+                            title="XFMR ${xfmr.id}: ${xfmr.kv_h}kV / ${xfmr.kv_x}kV" />
+                `;
+            });
+
+
+            // 3. Draw Buses (Nodes)
+            busCoordinates.forEach(bus => {
+                const busObj = busData.find(b => b.id === bus.id);
+                let V_text = busObj?.V_result.toFixed(3) || '1.000';
+                let color = 'var(--tw-colors-bus-default)'; 
+                const kvLevel = busObj.kv_level;
+                
+                // Outer ring color based on kV level
+                let kvColor = 'var(--tw-colors-bus-default)';
+                if (kvLevel === KV_LEVELS['69']) kvColor = 'var(--tw-colors-kv-69)';
+                else if (kvLevel === KV_LEVELS['34.5']) kvColor = 'var(--tw-colors-kv-345)';
+                else if (kvLevel === KV_LEVELS['13.8']) kvColor = 'var(--tw-colors-kv-138)';
+
+
+                if (results) {
+                    const res = results.find(r => r.id === bus.id);
+                    if (res) {
+                        // Inner circle color based on LF voltage magnitude
+                        if (res.V < 0.93) color = 'var(--tw-colors-bus-crit)'; 
+                        else if (res.V < 0.97) color = 'var(--tw-colors-bus-low)'; 
+                        else color = 'var(--tw-colors-bus-good)'; 
+                    }
+                }
+                
+                // Highlight fault bus
+                if (bus.id === selectedFaultBus) {
+                    color = 'var(--tw-colors-bus-fault)';
+                }
+
+                // Node circle
+                svg.innerHTML += `
+                    <circle cx="${bus.x}" cy="${bus.y}" r="12" fill="${color}" stroke="${kvColor}" stroke-width="3"
+                            cursor="pointer" onclick="selectFaultBus(${bus.id})"
+                            title="Bus ${bus.id} (${kvLevel}kV): V=${V_text} p.u." />
+                `;
+                // Node text (Bus ID)
+                svg.innerHTML += `
+                    <text x="${bus.x}" y="${bus.y + 3}" text-anchor="middle" fill="white" font-size="10px" font-weight="bold"
+                          cursor="pointer" onclick="selectFaultBus(${bus.id})">
+                        ${bus.id}
+                    </text>
+                `;
+                // Voltage text label
+                svg.innerHTML += `
+                    <text x="${bus.x}" y="${bus.y + 25}" text-anchor="middle" fill="${color}" font-size="10px">
+                        ${V_text} p.u.
+                    </text>
+                `;
+            });
+        }
+        
+        /** Renders the Line Configuration panel. */
+        function displayLineConfiguration() {
+            const configDiv = document.getElementById('lineConfiguration');
+            configDiv.innerHTML = '';
+
+            // Map ACSR types to display names including ampacity for clarity
+            const sortedACSRTypes = ACSR_TYPES.map(type => ({
+                code: type.code,
+                displayName: `${type.name} - ${type.ampacity}A` 
+            })).sort((a, b) => a.displayName.localeCompare(b.displayName));
+            
+            // Utility function to generate Breaker select dropdown
+            const getBreakerSelect = (line) => `
+                 <select class="line-select" onchange="updateSystemParameter(${line.id}, 'breakerModel', this.value)">
+                    ${BREAKER_MODELS.map(model => 
+                        `<option value="${model}" ${line.breakerModel === model ? 'selected' : ''}>${model}</option>`
+                    ).join('')}
+                </select>
+            `;
+
+            // Utility function to generate ANSI Relay select dropdown
+            const getRelaySelect = (line) => `
+                 <select class="line-select" onchange="updateSystemParameter(${line.id}, 'recloserModel', this.value)">
+                    ${ANSI_RELAYS.map(relay => 
+                        `<option value="${relay}" ${line.recloserModel === relay ? 'selected' : ''}>${relay}</option>`
+                    ).join('')}
+                </select>
+            `;
+
+            lineData.forEach(line => {
+                // Wire Type dropdown (includes Ampacity)
+                const selectElement = `
+                    <select class="line-select" onchange="updateSystemParameter(${line.id}, 'wireType', this.value)">
+                        ${sortedACSRTypes.map(type => 
+                            `<option value="${type.code}" ${line.wireType === type.code ? 'selected' : ''}>${type.displayName}</option>`
+                        ).join('')}
+                    </select>
+                `;
+
+                // Use the new two-row layout structure for compactness
+                configDiv.innerHTML += `
+                    <div class="line-item-block">
+                        <!-- ROW 1: Wire, From, To, On/Off -->
+                        <div class="line-item-row-1">
+                            ${selectElement}
+
+                            <input type="number" value="${line.from}" min="1" max="${NUM_BUSES}" 
+                                class="config-input text-center text-sm" 
+                                onchange="updateSystemParameter(${line.id}, 'from', this.value)" title="From Bus">
+                            
+                            <input type="number" value="${line.to}" min="1" max="${NUM_BUSES}" 
+                                class="config-input text-center text-sm" 
+                                onchange="updateSystemParameter(${line.id}, 'to', this.value)" title="To Bus">
+                            
+                            <!-- Active Toggle Switch -->
+                            <label class="relative inline-flex items-center cursor-pointer justify-center">
+                                <input type="checkbox" ${line.active ? 'checked' : ''} class="sr-only peer" 
+                                       onchange="toggleLineActive(${line.id}, this.checked); displayNetworkTopology(lfResults);">
+                                <div class="w-7 h-4 bg-gray-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-primary"></div>
+                            </label>
+                        </div>
+                        
+                        <!-- ROW 2: R, X, Breaker, Relay -->
+                         <div class="line-item-row-2">
+                            <input type="number" value="${line.R_user.toFixed(4)}" step="0.0001" min="0" 
+                                class="config-input text-right" 
+                                onchange="updateSystemParameter(${line.id}, 'R_user', this.value)" title="Resistance (p.u.)">
+                            
+                            <input type="number" value="${line.X_user.toFixed(4)}" step="0.0001" min="0" 
+                                class="config-input text-right" 
+                                onchange="updateSystemParameter(${line.id}, 'X_user', this.value)" title="Reactance (p.u.)">
+                            
+                            ${getBreakerSelect(line)}
+                            ${getRelaySelect(line)}
+                        </div>
+                    </div>
+                `;
+            });
+        }
+        
+        /** Renders the Transformer Configuration panel. */
+        function displayXfmrConfiguration() {
+            const configDiv = document.getElementById('xfmrConfiguration');
+            configDiv.innerHTML = '';
+            
+            xfmrData.forEach(xfmr => {
+                const MVA_select = `
+                    <select class="line-select" onchange="updateXfmrParameter(${xfmr.id}, 'MVA', this.value)">
+                        ${XFMR_SPECS.map(spec => 
+                            `<option value="${spec.rating}" ${xfmr.MVA === spec.rating ? 'selected' : ''}>${spec.rating} MVA (${spec.Z_percent}%)</option>`
+                        ).join('')}
+                    </select>
+                `;
+                
+                configDiv.innerHTML += `
+                    <div class="xfmr-item-block">
+                        <span class="font-bold">${xfmr.id}</span>
+                        <span class="text-center">${xfmr.from} (${xfmr.kv_h}kV)</span>
+                        <span class="text-center">${xfmr.to} (${xfmr.kv_x}kV)</span>
+                        ${MVA_select}
+                        <span class="font-mono text-xs text-right">${xfmr.Z_pu.toFixed(4)}</span>
+                    </div>
+                `;
+            });
+        }
+        
+        /** Renders the Bus Parameter and Smart Grid Controls panel. */
+        function displayBusEditing() {
+            const editDiv = document.getElementById('busParameterEditing');
+            editDiv.innerHTML = '';
+            
+            const busInputs = busData.map(bus => {
+                const isSlack = bus.type === 'Slack';
+                
+                let inputHTML = '';
+                let busWrapperClasses = "bg-gray-50 p-3 rounded-xl border border-gray-200 space-y-2 shadow-sm"; 
+                
+                // PQ or PV load fields
+                let loadFields = `
+                    <div class="flex space-x-2">
+                        <div class="flex-1 space-y-1">
+                            <label class="block text-xs font-medium text-gray-600">P Load</label>
+                            <input type="number" value="${bus.P_load_base.toFixed(3)}" step="0.01" min="0" 
+                                class="w-full config-input text-sm" onchange="updateSystemParameter(${bus.id}, 'P_load_base', this.value)">
+                        </div>
+                        <div class="flex-1 space-y-1">
+                            <label class="block text-xs font-medium text-gray-600">Q Load</label>
+                            <input type="number" value="${bus.Q_load_base.toFixed(3)}" step="0.01" min="0"
+                                class="w-full config-input text-sm" onchange="updateSystemParameter(${bus.id}, 'Q_load_base', this.value)">
+                        </div>
+                    </div>
+                `;
+
+                if (isSlack) {
+                     inputHTML = `<label class="block text-xs font-bold text-text-dark">Bus ${bus.id} (${bus.kv_level}kV Slack)</label><span class="text-xs text-gray-500 block text-center pt-2">V and &delta; are fixed.</span>`;
+                     busWrapperClasses += " flex flex-col justify-center items-center h-full";
+                } else {
+                    let smartGridFields = '';
+                    
+                    if (bus.type === 'PV') {
+                         // PV buses show P Gen and V Setpoint instead of load inputs
+                         loadFields = `
+                            <div class="flex space-x-2">
+                                <div class="flex-1 space-y-1">
+                                    <label class="block text-xs font-medium text-gray-600">P Gen</label>
+                                    <input type="number" value="${bus.P_gen.toFixed(3)}" step="0.01" min="0" 
+                                        class="w-full config-input text-sm" onchange="updateSystemParameter(${bus.id}, 'P_gen', this.value)">
+                                </div>
+                                <div class="flex-1 space-y-1">
+                                    <label class="block text-xs font-medium text-gray-600">V Set</label>
+                                    <input type="number" value="${bus.V.toFixed(3)}" step="0.001" min="0.95" max="1.10"
+                                        class="w-full config-input text-sm" onchange="updateSystemParameter(${bus.id}, 'V', this.value)">
+                                </div>
+                            </div>
+                        `;
+                    }
+                    
+                    // DG Control (Distributed Generation)
+                    if (bus.DG_capacity > 0) {
+                        smartGridFields += `
+                            <div class="space-y-1 pt-2 border-t border-gray-200">
+                                <label class="block text-xs font-bold text-accent-blue">DG Control (Bus ${bus.id})</label>
+                                <label class="block text-xs font-medium text-gray-600">DG Status (Cap: ${bus.DG_capacity} p.u.)</label>
+                                <select class="line-select" onchange="updateSystemParameter(${bus.id}, 'DG_status', this.value)">
+                                    <option value="On" ${bus.DG_status === 'On' ? 'selected' : ''}>ON</option>
+                                    <option value="Off" ${bus.DG_status === 'Off' ? 'selected' : ''}>OFF</option>
+                                </select>
+                                <label class="block text-xs font-medium text-gray-600">Q Control</label>
+                                <select class="line-select" onchange="updateSystemParameter(${bus.id}, 'DG_Q_mode', this.value)">
+                                    <option value="Unity" ${bus.DG_Q_mode === 'Unity' ? 'selected' : ''}>Unity (PF=1)</option>
+                                    <option value="Boost V" ${bus.DG_Q_mode === 'Boost V' ? 'selected' : ''}>Boost V (+Q)</option>
+                                    <option value="Absorb Q" ${bus.DG_Q_mode === 'Absorb Q' ? 'selected' : ''}>Absorb Q (-Q)</option>
+                                </select>
+                            </div>
+                        `;
+                    }
+
+                    // DR Control (Demand Response)
+                    if (bus.DR_enabled) {
+                        smartGridFields += `
+                            <div class="space-y-1 pt-2 ${bus.DG_capacity > 0 ? '' : 'border-t border-gray-200'}">
+                                <label class="block text-xs font-bold text-accent-blue">Demand Response (Bus ${bus.id})</label>
+                                <label class="block text-xs font-medium text-gray-600">P Reduction (p.u.)</label>
+                                <input type="number" value="${bus.DR_reduction.toFixed(3)}" step="0.01" min="0" max="${bus.P_load_base * 0.5}"
+                                    class="w-full config-input text-sm" onchange="updateSystemParameter(${bus.id}, 'DR_reduction', this.value)">
+                            </div>
+                        `;
+                    }
+
+
+                     inputHTML = `
+                        <label class="block text-xs font-bold text-text-dark">${bus.id}. ${bus.load_type} (${bus.kv_level}kV)</label>
+                        ${loadFields}
+                        ${smartGridFields}
+                    `;
+                }
+                return `<div class="${busWrapperClasses}">${inputHTML}</div>`;
+            }).join('');
+
+            editDiv.innerHTML = busInputs;
+        }
+
+        /** Sets the currently selected fault bus and updates the UI (SVG). */
+        function selectFaultBus(busId) {
+            if (busId >= 1 && busId <= 15) {
+                selectedFaultBus = busId;
+                document.getElementById('faultBus').value = busId;
+                document.getElementById('currentFaultBus').textContent = busId;
+                displayNetworkTopology(lfResults);
+            }
+        }
+        
+        // --- RESULTS DISPLAY FUNCTIONS (Omitted for brevity in this comment block) ---
+        
         function displayShortCircuitResults(results) {
             const scBody = document.getElementById('scBody');
             
@@ -1623,89 +2104,6 @@
              </p>`);
         }
         
-        function displayNetworkTopology(results = null) {
-            const svg = document.getElementById('networkSVG');
-            if (!svg) return; 
-            
-            const svgWidth = svg.clientWidth || 1000;
-            const svgHeight = svg.clientHeight || 400;
-            svg.setAttribute('viewBox', `0 0 1000 400`);
-            svg.innerHTML = ''; 
-
-            // 1. Draw Lines (Wires)
-            lineData.forEach(line => {
-                const fromCoords = busCoordinates.find(b => b.id === line.from);
-                const toCoords = busCoordinates.find(b => b.id === line.to);
-
-                if (!fromCoords || !toCoords) return; 
-
-                let lineStroke = line.active ? '#374151' : '#d1d5db'; 
-                let lineDash = line.active ? 'none' : '4';
-                let lineOpacity = line.active ? 1.0 : 0.5;
-
-                svg.innerHTML += `
-                    <line x1="${fromCoords.x}" y1="${fromCoords.y}" x2="${toCoords.x}" y2="${toCoords.y}"
-                          stroke="${lineStroke}" stroke-width="2" stroke-dasharray="${lineDash}" opacity="${lineOpacity}" 
-                          title="Line ${line.id}: ${line.from}-${line.to} (${line.wireType})" />
-                `;
-            });
-
-            // 2. Draw Buses (Nodes)
-            busCoordinates.forEach(bus => {
-                let V_text = busData.find(b => b.id === bus.id)?.V_result.toFixed(3) || '1.000';
-                let color = 'var(--tw-colors-bus-default)'; 
-
-                if (results) {
-                    const res = results.find(r => r.id === bus.id);
-                    if (res) {
-                        if (res.V < 0.97) color = 'var(--tw-colors-bus-low)'; 
-                        else if (res.V < 0.93) color = 'var(--tw-colors-bus-crit)'; 
-                        else color = 'var(--tw-colors-bus-good)'; 
-                    }
-                }
-                
-                if (bus.id === selectedFaultBus) {
-                    color = 'var(--tw-colors-bus-fault)';
-                }
-
-                // Node circle
-                svg.innerHTML += `
-                    <circle cx="${bus.x}" cy="${bus.y}" r="12" fill="${color}" stroke="#1f2937" stroke-width="1.5"
-                            cursor="pointer" onclick="selectFaultBus(${bus.id})"
-                            title="Bus ${bus.id}: V=${V_text} p.u." />
-                `;
-                // Node text (Bus ID)
-                svg.innerHTML += `
-                    <text x="${bus.x}" y="${bus.y + 3}" text-anchor="middle" fill="white" font-size="10px" font-weight="bold"
-                          cursor="pointer" onclick="selectFaultBus(${bus.id})">
-                        ${bus.id}
-                    </text>
-                `;
-                // Voltage text label
-                svg.innerHTML += `
-                    <text x="${bus.x}" y="${bus.y + 25}" text-anchor="middle" fill="${color}" font-size="10px">
-                        ${V_text} p.u.
-                    </text>
-                `;
-            });
-        }
-        
-        function toggleLineActive(lineId, isActive) {
-            const line = lineData.find(l => l.id === lineId);
-            if (line) {
-                line.active = isActive;
-            }
-        }
-
-        function selectFaultBus(busId) {
-            if (busId >= 1 && busId <= 15) {
-                selectedFaultBus = busId;
-                document.getElementById('faultBus').value = busId;
-                document.getElementById('currentFaultBus').textContent = busId;
-                displayNetworkTopology(lfResults);
-            }
-        }
-
         function showResults(view) {
             const views = {
                 'loadFlow': document.getElementById('loadFlowResults'),
@@ -1732,13 +2130,61 @@
                 }
             }
         }
+        
+        function displayOptimizationSummary(postViolations) {
+            const summaryDiv = document.getElementById('optimizationSummary');
+            const summaryContent = document.getElementById('summaryContent');
+            const preViolations = optimizationTrack.preViolations;
+            const postAvgV = busData.reduce((sum, b) => sum + b.V_result, 0) / NUM_BUSES;
+            const deltaV = postAvgV - optimizationTrack.preAvgV;
 
-        // --- Initialization ---
+            let html = `<p class="font-bold text-lg text-text-dark">Results Overview</p>`;
+            html += `<ul class="list-disc list-inside space-y-1">`;
+            html += `<li class="${postViolations > 0 ? 'text-code-fail' : 'text-code-fix'}">Compliance improved from ${preViolations} to ${postViolations} total violations.</li>`;
+            html += `<li>Average System Voltage increased by <span class="font-semibold text-code-fix">${deltaV.toFixed(4)} p.u.</span> (From ${optimizationTrack.preAvgV.toFixed(4)} to ${postAvgV.toFixed(4)} p.u.).</li>`;
+            html += `</ul>`;
+
+            // --- Equipment Upgrades ---
+            if (optimizationTrack.wireUpgrades.length > 0) {
+                html += `<p class="font-bold text-md text-text-dark mt-4">Equipment Upgrades:</p><ul class="list-disc list-inside space-y-1 text-sm">`;
+                optimizationTrack.wireUpgrades.forEach(u => {
+                    html += `<li class="text-code-fix">Line ${u.lineId}: Upgraded **${u.oldWire}** to **${u.newWire}** (Fixed Ampacity/Voltage Drop). Breaker also upgraded to **${u.newBreaker}** (40kA rating).</li>`;
+                });
+                html += `</ul>`;
+            } else {
+                 html += `<p class="text-gray-600 mt-4 text-sm">No wire or breaker upgrades were needed or performed.</p>`;
+            }
+
+            // --- Smart Grid Actions ---
+            if (optimizationTrack.dgActions.length > 0 || optimizationTrack.drActions.length > 0) {
+                 html += `<p class="font-bold text-md text-text-dark mt-4">Smart Grid Actions:</p><ul class="list-disc list-inside space-y-1 text-sm">`;
+                 optimizationTrack.dgActions.forEach(a => {
+                     html += `<li class="text-code-fix">Bus ${a.busId} DG: Status set to **${a.newStatus}**. Q control set to **${a.newQMode}**.</li>`;
+                 });
+                 optimizationTrack.drActions.forEach(a => {
+                     html += `<li class="text-code-fix">Bus ${a.busId} DR: Load reduction applied (**${a.reduction.toFixed(3)} p.u.**) to raise voltage/reduce load stress.</li>`;
+                 });
+                 html += `</ul>`;
+            } else {
+                 html += `<p class="text-gray-600 mt-4 text-sm">No Smart Grid actions were necessary to resolve violations.</p>`;
+            }
+
+
+            summaryContent.innerHTML = html;
+            summaryDiv.classList.remove('hidden');
+        }
+
+        // --- FINAL INITIALIZATION ---
 
         document.addEventListener('DOMContentLoaded', () => {
+            // 1. Initialize data model
             initializeSystemData();
+            // 2. Set default fault bus
             selectFaultBus(10);
+            // 3. Draw initial empty network map
             displayNetworkTopology();
+            // 4. Show lines configuration tab by default
+            showConfig('lines'); 
         });
     </script>
 </body>
