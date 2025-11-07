@@ -875,27 +875,27 @@
          * Attempts to fix all detected PEC/PGC violations.
          */
         function optimizeViolations() {
-            // Store current state for comparison
-            optimizationTrack.preViolations = 0; // Will be overwritten by the coming LF run
+            // Save current state for comparison
+            // NOTE: We rely on runCodeComplianceAndSizing setting preViolations before this function executes.
             optimizationTrack.preAvgV = busData.reduce((sum, b) => sum + b.V_result, 0) / NUM_BUSES;
             optimizationTrack.wireUpgrades = [];
             optimizationTrack.dgActions = [];
             optimizationTrack.drActions = [];
             optimizationTrack.hasRun = false; // Indicate that the next run is post-optimization
 
-            // Rerun compliance check to accurately determine violations based on the LAST successful LF
+            // We must re-run compliance checks internally to get fresh line.isWireAdequate status.
+            // Since we know the previous LF was successful (user pressed the LF button), we can re-run
+            // the compliance check now to ensure line.isWireAdequate and line.recommendedWire are accurate.
             runCodeComplianceAndSizing(lfResults); 
 
             // 1. --- Apply Smart Grid Actions (V/THD fixes) ---
             
-            // Collect buses that need immediate voltage/THD fixes
-            let voltageViolations = busData.filter(b => b.V_result < VOLTAGE_LIMIT_MIN);
-            let thdViolations = busData.filter(b => b.thd_value > HARMONIC_LIMIT_THD);
-
             // Attempt to fix Voltage and THD using DG/DR
-            if (voltageViolations.length > 0 || thdViolations.length > 0) {
+            let needsSmartGridFix = busData.some(b => b.V_result < 0.96 || b.thd_value > HARMONIC_LIMIT_THD);
+
+            if (needsSmartGridFix) {
                 
-                // DG Actions
+                // DG Actions (Turn off DG helps THD; turn on helps V)
                 busData.filter(b => b.DG_capacity > 0 && b.DG_status === 'Off').forEach(bus => {
                     bus.DG_status = 'On';
                     
@@ -930,18 +930,17 @@
                 
                 // Track current wire name for summary
                 const oldWireName = currentACSR ? currentACSR.name : 'Unknown';
-                const oldBreakerName = line.breakerModel;
-
+                //const oldBreakerName = line.breakerModel; // Not used but kept for context
 
                 // A. Wire Sizing Fix (Ampacity/Voltage Drop)
                 if (!line.isWireAdequate && line.recommendedWire) {
+                    // CRITICAL FIX: Upgrade the wire type using the pre-calculated recommendation
                     line.wireType = line.recommendedWire;
                     recalculateLineImpedance(line.id, line.recommendedWire);
                     upgradeNeeded = true;
                 }
 
-                // B. Breaker SCA Rating Fix (If current is low capacity)
-                // Use a minimum target kA (e.g., 40kA) if the existing rating is low
+                // B. Breaker SCA Rating Fix 
                 const breakerMatch = line.breakerModel.match(/\(([\d\.]+)\s*kA\)/);
                 const breakerRatingkA = breakerMatch ? parseFloat(breakerMatch[1]) : 10;
                 
@@ -965,7 +964,7 @@
             // Re-render controls and re-run Load Flow
             displayLineConfiguration(); 
             displayBusEditing(); 
-            runLoadFlow(); 
+            runLoadFlow(); // This final run will perform the Load Flow with the optimized parameters and re-run the compliance check one last time.
         }
 
         // --- Charting ---
