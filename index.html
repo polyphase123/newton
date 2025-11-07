@@ -71,10 +71,13 @@
             overflow-y: auto;
             padding-right: 8px; 
         }
-        /* Line config layout for breakers/reclosers */
+        /* Line config layout for breakers/reclosers - IMPROVED LAYOUT */
         .line-item-full {
-            display: grid;
-            grid-template-columns: 1.2fr 0.5fr 0.5fr 0.7fr 0.7fr 0.9fr 0.9fr 0.3fr; /* 8 columns + protection */
+            /* Adjusted grid template for better distribution: 
+               WireType | From | To | R | X | Breaker | Relay | On/Off 
+               Smaller columns for numbers (R/X) and smaller elements (From/To/Toggle) */
+            grid-template-columns: 1.1fr 0.4fr 0.4fr 0.6fr 0.6fr 1.0fr 1.0fr 0.3fr;
+            display: grid; 
             align-items: center;
             gap: 4px;
             padding: 8px 0;
@@ -896,7 +899,7 @@
             if (needsSmartGridFix) {
                 
                 // DG Actions (Turn off DG helps THD; turn on helps V)
-                busData.filter(b => b.DG_capacity > 0 && b.DG_status === 'Off').forEach(bus => {
+                busData.filter(b => b.DG_capacity > 0 && bus.DG_status === 'Off').forEach(bus => {
                     bus.DG_status = 'On';
                     
                     if (bus.V_result < VOLTAGE_LIMIT_MIN) {
