@@ -66,6 +66,7 @@
             text-align: right;
             font-size: 0.75rem;
             color: #1f2937;
+            height: 28px; /* Standardize height */
         }
         /* Increased height for configuration panels */
         .config-list {
@@ -74,30 +75,20 @@
             padding-right: 8px; 
         }
         
-        /* Two-row compact layout for line configuration */
+        /* --- MODIFIED: SINGLE ROW COMPACT LAYOUT FOR LINE CONFIGURATION --- */
         .line-item-block {
-            display: flex;
-            flex-direction: column;
+            display: grid;
+            /* New Grid: Wire Type, R, X, From, To, Breaker, Relay, Active */
+            grid-template-columns: 2fr 0.8fr 0.8fr 0.4fr 0.4fr 1.5fr 1.5fr 0.3fr;
+            align-items: center;
             padding: 8px 0;
             border-bottom: 1px solid #e5e7eb;
             font-size: 0.75rem;
-            gap: 4px;
+            gap: 6px; /* Increased gap for separation */
         }
-        /* Row 1: Wire Type, From, To, Active Toggle */
-        .line-item-row-1 {
-            display: grid;
-            grid-template-columns: 1.5fr 0.4fr 0.4fr 0.3fr; 
-            align-items: center;
-            gap: 4px;
-        }
-        /* Row 2: R, X, Breaker, Relay */
-        .line-item-row-2 {
-            display: grid;
-            grid-template-columns: 0.6fr 0.6fr 1fr 1fr; 
-            align-items: center;
-            gap: 4px;
-            padding-top: 2px;
-            border-top: 1px dashed #f3f4f6;
+        /* Remove unused classes */
+        .line-item-row-1, .line-item-row-2 {
+            display: contents; /* Makes children participate directly in the parent grid */
         }
         .line-select {
             padding: 2px;
@@ -107,11 +98,44 @@
             color: #1f2937;
             background-color: white;
             width: 100%;
+            height: 28px; /* Standardize height */
         }
         /* Fixed height for chart container to prevent layout shifting (CLS) */
         .chart-container {
             position: relative;
             height: 300px; 
+        }
+
+        /* --- Custom Bubbly Button Effect --- */
+        .bubbly-button {
+            position: relative;
+            z-index: 1;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+        .bubbly-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.2);
+        }
+        .bubbly-button:active {
+            transform: translateY(0);
+            box-shadow: 0 3px 8px rgba(0, 0, 0, 0.2);
+        }
+        /* SVG Container Fix for Responsiveness */
+        #svgContainer {
+            width: 100%;
+            padding-bottom: 40%; /* Aspect ratio 1000:400 */
+            position: relative;
+            overflow: hidden;
+        }
+        #networkSVG {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            /* Ensure the SVG scales its internal content to the viewbox */
+            preserveAspectRatio: xMidYMid meet;
         }
     </style>
 </head>
@@ -142,6 +166,7 @@
             <!-- Line Configuration Panel (Lines/N-1/DG Intermittency) -->
             <div class="bg-white p-5 rounded-xl shadow-2xl border border-gray-100">
                 <div class="flex border-b border-gray-300 mb-4">
+                    <!-- Tab remains static as requested -->
                     <button id="configTabLines" class="flex-1 px-3 py-2 text-md font-semibold border-b-2 border-primary text-primary transition duration-300">Wire Lines Configuration (32)</button>
                 </div>
 
@@ -171,20 +196,16 @@
                 <!-- Line Configuration Panel Content -->
                 <div id="lineConfigPanel">
                     <h3 class="text-lg font-semibold text-text-dark mb-3">Wire Lines</h3>
-                    <!-- Header defines the two-row grid layout for each line item -->
-                    <div id="lineConfigHeader" class="text-xs text-gray-500 font-bold mb-1 px-1">
-                        <div class="line-item-row-1 mb-1">
-                            <span>Wire Type</span>
-                            <span>From</span>
-                            <span>To</span>
-                            <span class="text-center">Active</span>
-                        </div>
-                        <div class="line-item-row-2 text-center text-gray-400">
-                            <span class="text-right">R (p.u.)</span>
-                            <span class="text-right">X (p.u.)</span>
-                            <span>Breaker</span>
-                            <span class="cursor-pointer font-extrabold" onclick="openCodeDetails('ANSI_CODE_EXPLANATION')">ANSI Relay</span>
-                        </div>
+                    <!-- HEADER MODIFIED FOR SINGLE ROW -->
+                    <div id="lineConfigHeader" class="text-xs text-gray-500 font-bold mb-1 px-1 line-item-block">
+                        <span>Wire Type</span>
+                        <span class="text-center">R (p.u.)</span>
+                        <span class="text-center">X (p.u.)</span>
+                        <span class="text-center">From</span>
+                        <span class="text-center">To</span>
+                        <span>Breaker</span>
+                        <span class="cursor-pointer font-extrabold" onclick="openCodeDetails('ANSI_CODE_EXPLANATION')">ANSI Relay</span>
+                        <span class="text-center">Active</span>
                     </div>
     
                     <div id="lineConfiguration" class="config-list">
@@ -192,7 +213,7 @@
                     </div>
                 </div>
 
-                <button onclick="runLoadFlow()" class="bubbly-button mt-4 w-full py-3 px-4 bg-gradient-to-r from-primary to-teal-400 text-white font-extrabold rounded-xl shadow-lg hover:shadow-xl">
+                <button onclick="runLoadFlow()" class="bubbly-button mt-4 w-full py-3 px-4 bg-gradient-to-r from-primary to-teal-400 text-white font-extrabold rounded-xl shadow-lg hover:shadow-xl" aria-label="Run Load Flow and Compliance Check">
                     <svg class="w-5 h-5 inline-block mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0h6m-6 0h-2m8 0V7a2 2 0 00-2-2h-2a2 2 0 00-2 2v12m-2-12h4m2 0V5a2 2 0 00-2-2h-2a2 2 0 00-2 2v12m-2-12h4"></path></svg>
                     Run Load Flow & Compliance Check
                 </button>
@@ -216,27 +237,27 @@
                     Short Circuit & Fault Analysis
                 </h2>
                 <div class="space-y-2">
-                    <select id="loadFlowMethod" class="w-full p-2 rounded-lg bg-gray-100 border border-gray-300 text-text-dark focus:ring-primary focus:border-primary">
+                    <select id="loadFlowMethod" class="w-full p-2 rounded-lg bg-gray-100 border border-gray-300 text-text-dark focus:ring-primary focus:border-primary" aria-label="Load Flow Method">
                         <option value="NR">Newton-Raphson (NR)</option>
                         <option value="GS">Gauss-Seidel (GS)</option>
                     </select>
                     <div class="flex items-center space-x-2">
-                        <select id="faultType" class="flex-1 p-2 rounded-lg bg-gray-100 border border-gray-300 text-text-dark focus:ring-secondary focus:border-secondary">
+                        <select id="faultType" class="flex-1 p-2 rounded-lg bg-gray-100 border border-gray-300 text-text-dark focus:ring-secondary focus:border-secondary" aria-label="Fault Type">
                             <option value="LLL">Three-Phase (L-L-L) Fault</option>
                             <option value="SLG">Single-Line-to-Ground (SLG) Fault</option>
                             <option value="LL">Line-to-Line (L-L) Fault</option>
                             <option value="LLG">Double-Line-to-Ground (L-L-G) Fault</option>
                         </select>
-                        <input type="number" id="faultBus" min="1" max="15" value="10" placeholder="Bus" class="w-16 p-2 rounded-lg bg-gray-100 border border-gray-300 text-text-dark text-center" onchange="selectFaultBus(parseInt(this.value))">
+                        <input type="number" id="faultBus" min="1" max="15" value="10" placeholder="Bus" class="w-16 p-2 rounded-lg bg-gray-100 border border-gray-300 text-text-dark text-center" onchange="selectFaultBus(parseInt(this.value))" aria-label="Fault Bus ID">
                     </div>
                     
                     <!-- Feature 5: Fault Impedance -->
                     <div class="flex items-center space-x-2">
                         <label for="faultImpedance" class="text-xs font-medium text-gray-700 w-1/2">Fault Impedance ($Z_f$ p.u.):</label>
-                        <input type="number" id="faultImpedance" min="0" step="0.01" value="0.00" class="flex-1 p-2 rounded-lg bg-gray-100 border border-gray-300 text-text-dark text-center">
+                        <input type="number" id="faultImpedance" min="0" step="0.01" value="0.00" class="flex-1 p-2 rounded-lg bg-gray-100 border border-gray-300 text-text-dark text-center" aria-label="Fault Impedance">
                     </div>
 
-                    <button onclick="runShortCircuit()" class="bubbly-button w-full py-3 px-4 bg-gradient-to-r from-secondary to-orange-400 text-white font-extrabold rounded-xl shadow-lg hover:shadow-xl">
+                    <button onclick="runShortCircuit()" class="bubbly-button w-full py-3 px-4 bg-gradient-to-r from-secondary to-orange-400 text-white font-extrabold rounded-xl shadow-lg hover:shadow-xl" aria-label="Run Short Circuit Analysis">
                         <svg class="w-5 h-5 inline-block mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
                         Run Short Circuit Analysis
                     </button>
@@ -281,7 +302,7 @@
                             Simulated Load Profile:
                         </label>
                         <!-- Updated to use Load Profiles and trigger an update on change -->
-                        <select id="loadProfileTime" class="p-2 rounded-lg bg-white border border-gray-300 text-text-dark focus:ring-primary focus:border-primary" onchange="updateLoadProfile(this.value)">
+                        <select id="loadProfileTime" class="p-2 rounded-lg bg-white border border-gray-300 text-text-dark focus:ring-primary focus:border-primary" onchange="updateLoadProfile(this.value)" aria-label="Select Load Profile">
                             <option value="Morning Peak (8-10h)">Morning Peak (8-10h)</option>
                             <option value="Midday (12-14h)">Midday (12-14h)</option>
                             <option value="Evening Peak (18-20h)">Evening Peak (18-20h)</option>
@@ -301,10 +322,10 @@
                         Voltage Magnitude Profile (V p.u.)
                     </h3>
                     <div class="chart-container">
-                        <canvas id="voltageProfileChart"></canvas>
+                        <canvas id="voltageProfileChart" role="img" aria-label="Voltage Profile Chart"></canvas>
                     </div>
                 </div>
-                <table id="lfTable" class="min-w-full bus-result-table hidden"></table>
+                <table id="lfTable" class="min-w-full bus-result-table hidden" role="table" aria-label="Load Flow Results Summary"></table>
             </div>
 
             <!-- Load Flow Iterative -->
@@ -317,7 +338,7 @@
             <!-- Short Circuit Results -->
             <div id="shortCircuitResults" class="mt-4 hidden h-[450px]">
                 <p class="text-gray-500 text-center py-10">Run the Short Circuit Analysis after a Load Flow to view fault current and MVA.</p>
-                <table class="min-w-full text-sm short-circuit-table">
+                <table class="min-w-full text-sm short-circuit-table" role="table" aria-label="Short Circuit Analysis Results">
                     <thead>
                         <tr>
                             <th class="w-1/2">Parameter</th>
@@ -354,7 +375,7 @@
                             <svg class="w-5 h-5 mr-2 text-yellow-600" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 17c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm0-15C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8zm0-14c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"></path></svg>
                             Optimization & Action
                         </h3>
-                         <button onclick="optimizeViolations()" id="optimizeButton" class="bubbly-button py-2 px-4 bg-gradient-to-r from-orange-500 to-red-500 text-white font-bold rounded-xl shadow-md flex items-center disabled:opacity-50">
+                         <button onclick="optimizeViolations()" id="optimizeButton" class="bubbly-button py-2 px-4 bg-gradient-to-r from-orange-500 to-red-500 text-white font-bold rounded-xl shadow-md flex items-center disabled:opacity-50" aria-label="Optimize Violations and Re-Run">
                             <svg class="w-5 h-5 mr-1" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 10c-1.1 0-2 .9-2 2s.9 2 2 2 2-.9 2-2-.9-2-2-2zm0-8C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.41 0-8-3.59-8-8s3.59-8 8-8 8 3.59 8 8-3.59 8-8 8z"></path></svg>
                             Optimize Violations & Re-Run
                         </button>
@@ -367,12 +388,12 @@
     </div>
 
     <!-- Technical Details Modal -->
-    <div id="technicalModal" class="hidden fixed inset-0 z-50 overflow-y-auto bg-gray-900 bg-opacity-80 transition-opacity duration-300">
+    <div id="technicalModal" class="hidden fixed inset-0 z-50 overflow-y-auto bg-gray-900 bg-opacity-80 transition-opacity duration-300" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
         <div class="flex items-center justify-center min-h-screen">
             <div class="bg-white rounded-xl shadow-2xl p-6 m-4 max-w-lg w-full transform transition-all duration-300 scale-95" id="modalContent">
                 <div class="flex justify-between items-center border-b pb-3 mb-4">
                     <h3 class="text-xl font-bold text-accent-blue" id="modalTitle">Technical Details</h3>
-                    <button onclick="closeModal()" class="text-gray-500 hover:text-red-500 text-2xl font-light">&times;</button>
+                    <button onclick="closeModal()" class="text-gray-500 hover:text-red-500 text-2xl font-light" aria-label="Close modal">&times;</button>
                 </div>
                 <div id="modalBody" class="text-gray-700 space-y-3">
                     <!-- Content injected here -->
@@ -1026,7 +1047,7 @@
                     <svg class="w-5 h-5 mr-2 text-accent-blue" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"></path></svg>
                     Bus Compliance (PGC Voltage, PEC VD, Harmonics)
                 </h3>
-                <table class="min-w-full compliance-table text-sm">
+                <table class="min-w-full compliance-table text-sm" role="table" aria-label="Bus Compliance Check">
                     <thead>
                         <tr class="bg-gray-200">
                             <th>Bus ID (kV)</th>
@@ -1052,7 +1073,7 @@
                 let kvColorClass = `text-kv-${bus.kv_level.toString().replace('.', '')}`;
 
                 complianceTableHTML += `
-                    <tr class="hover:bg-gray-50 cursor-pointer" onclick="openCodeDetails('BUS_SUMMARY', ${bus.id})">
+                    <tr class="hover:bg-gray-50 cursor-pointer" onclick="openCodeDetails('BUS_SUMMARY', ${bus.id})" aria-label="Bus ${bus.id} details">
                         <td class="font-bold">Bus ${bus.id} <span class="${kvColorClass}">(${bus.kv_level}kV)</span></td>
                         <td>${res.V.toFixed(4)}</td>
                         <td class="${isPGC_V_OK ? 'text-code-pass' : 'text-code-fail font-bold'}">
@@ -1079,7 +1100,7 @@
                     <svg class="w-5 h-5 mr-2 text-secondary" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.477 3-10S13.657 3 12 3s-3 4.477-3 10 1.343 10 3 10z"></path></svg>
                     Line Sizing & Protection Compliance
                 </h3>
-                <table class="min-w-full compliance-table text-xs">
+                <table class="min-w-full compliance-table text-xs" role="table" aria-label="Line Sizing and Protection Check">
                     <thead>
                         <tr class="bg-gray-200">
                             <th>Line (From-To)</th>
@@ -1465,6 +1486,8 @@
             modal.classList.remove('hidden');
             document.getElementById('modalContent').classList.remove('scale-95');
             document.getElementById('modalContent').classList.add('scale-100');
+            // Accessibility: Focus on the modal for screen readers
+            modal.focus();
         }
 
         /** Closes the technical details modal. */
@@ -1567,8 +1590,7 @@
             const svg = document.getElementById('networkSVG');
             if (!svg) return; 
             
-            const svgWidth = svg.clientWidth || 1000;
-            const svgHeight = svg.clientHeight || 400;
+            // Fixed viewBox dimensions (1000x400) ensure content scales responsively via CSS
             svg.setAttribute('viewBox', `0 0 1000 400`);
             svg.innerHTML = ''; 
             
@@ -1625,7 +1647,8 @@
                 svg.innerHTML += `
                     <circle cx="${bus.x}" cy="${bus.y}" r="12" fill="${color}" stroke="${kvColor}" stroke-width="3"
                             cursor="pointer" onclick="selectFaultBus(${bus.id})"
-                            title="Bus ${bus.id} (${kvLevel}kV): V=${V_text} p.u." />
+                            title="Bus ${bus.id} (${kvLevel}kV): V=${V_text} p.u." 
+                            aria-label="Bus ${bus.id} with voltage ${V_text} p.u."/>
                     <text x="${bus.x}" y="${bus.y + 3}" text-anchor="middle" fill="white" font-size="10px" font-weight="bold"
                           cursor="pointer" onclick="selectFaultBus(${bus.id})">
                         ${bus.id}
@@ -1637,7 +1660,7 @@
             });
         }
         
-        /** Renders the Line Configuration panel. (No change to function, logic is solid) */
+        /** Renders the Line Configuration panel. */
         function displayLineConfiguration() {
             const configDiv = document.getElementById('lineConfiguration');
             configDiv.innerHTML = '';
@@ -1648,7 +1671,7 @@
             })).sort((a, b) => a.displayName.localeCompare(b.displayName));
             
             const getBreakerSelect = (line) => `
-                 <select class="line-select" onchange="updateSystemParameter(${line.id}, 'breakerModel', this.value)">
+                 <select class="line-select" onchange="updateSystemParameter(${line.id}, 'breakerModel', this.value)" aria-label="Breaker Model for Line ${line.from}-${line.to}">
                     ${BREAKER_MODELS.map(model => 
                         `<option value="${model}" ${line.breakerModel === model ? 'selected' : ''}>${model}</option>`
                     ).join('')}
@@ -1656,7 +1679,7 @@
             `;
 
             const getRelaySelect = (line) => `
-                 <select class="line-select" onchange="updateSystemParameter(${line.id}, 'recloserModel', this.value)">
+                 <select class="line-select" onchange="updateSystemParameter(${line.id}, 'recloserModel', this.value)" aria-label="ANSI Relay for Line ${line.from}-${line.to}">
                     ${ANSI_RELAYS.map(relay => 
                         `<option value="${relay}" ${line.recloserModel === relay ? 'selected' : ''}>${relay}</option>`
                     ).join('')}
@@ -1665,45 +1688,42 @@
 
             lineData.forEach(line => {
                 const selectElement = `
-                    <select class="line-select" onchange="updateSystemParameter(${line.id}, 'wireType', this.value)">
+                    <select class="line-select" onchange="updateSystemParameter(${line.id}, 'wireType', this.value)" aria-label="Wire Type for Line ${line.from}-${line.to}">
                         ${sortedACSRTypes.map(type => 
                             `<option value="${type.code}" ${line.wireType === type.code ? 'selected' : ''}>${type.displayName}</option>`
                         ).join('')}
                     </select>
                 `;
 
+                // --- MODIFIED: Single Grid Row Structure ---
                 configDiv.innerHTML += `
                     <div class="line-item-block">
-                        <div class="line-item-row-1">
-                            ${selectElement}
+                        ${selectElement}
 
-                            <input type="number" value="${line.from}" min="1" max="${NUM_BUSES}" 
-                                class="config-input text-center text-sm" 
-                                onchange="updateSystemParameter(${line.id}, 'from', this.value)" title="From Bus">
-                            
-                            <input type="number" value="${line.to}" min="1" max="${NUM_BUSES}" 
-                                class="config-input text-center text-sm" 
-                                onchange="updateSystemParameter(${line.id}, 'to', this.value)" title="To Bus">
-                            
-                            <label class="relative inline-flex items-center cursor-pointer justify-center">
-                                <input type="checkbox" ${line.active ? 'checked' : ''} class="sr-only peer" 
-                                       onchange="toggleLineActive(${line.id}, this.checked); displayNetworkTopology(lfResults);">
-                                <div class="w-7 h-4 bg-gray-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-primary"></div>
-                            </label>
-                        </div>
+                        <input type="number" value="${line.R_user.toFixed(4)}" step="0.0001" min="0" 
+                            class="config-input text-right" 
+                            onchange="updateSystemParameter(${line.id}, 'R_user', this.value)" title="Resistance (p.u.)" aria-label="Resistance R p.u. for Line ${line.id}">
                         
-                        <div class="line-item-row-2">
-                            <input type="number" value="${line.R_user.toFixed(4)}" step="0.0001" min="0" 
-                                class="config-input text-right" 
-                                onchange="updateSystemParameter(${line.id}, 'R_user', this.value)" title="Resistance (p.u.)">
-                            
-                            <input type="number" value="${line.X_user.toFixed(4)}" step="0.0001" min="0" 
-                                class="config-input text-right" 
-                                onchange="updateSystemParameter(${line.id}, 'X_user', this.value)" title="Reactance (p.u.)">
-                            
-                            ${getBreakerSelect(line)}
-                            ${getRelaySelect(line)}
-                        </div>
+                        <input type="number" value="${line.X_user.toFixed(4)}" step="0.0001" min="0" 
+                            class="config-input text-right" 
+                            onchange="updateSystemParameter(${line.id}, 'X_user', this.value)" title="Reactance (p.u.)" aria-label="Reactance X p.u. for Line ${line.id}">
+                        
+                        <input type="number" value="${line.from}" min="1" max="${NUM_BUSES}" 
+                            class="config-input text-center text-sm" 
+                            onchange="updateSystemParameter(${line.id}, 'from', this.value)" title="From Bus" aria-label="From Bus ID for Line ${line.id}">
+                        
+                        <input type="number" value="${line.to}" min="1" max="${NUM_BUSES}" 
+                            class="config-input text-center text-sm" 
+                            onchange="updateSystemParameter(${line.id}, 'to', this.value)" title="To Bus" aria-label="To Bus ID for Line ${line.id}">
+                        
+                        ${getBreakerSelect(line)}
+                        ${getRelaySelect(line)}
+
+                        <label class="relative inline-flex items-center cursor-pointer justify-center" aria-label="Toggle Line ${line.id} Active Status">
+                            <input type="checkbox" ${line.active ? 'checked' : ''} class="sr-only peer" 
+                                   onchange="toggleLineActive(${line.id}, this.checked); displayNetworkTopology(lfResults);">
+                            <div class="w-7 h-4 bg-gray-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-3 after:w-3 after:transition-all peer-checked:bg-primary"></div>
+                        </label>
                     </div>
                 `;
             });
@@ -1725,12 +1745,12 @@
                         <div class="flex-1 space-y-1">
                             <label class="block text-xs font-medium text-gray-600">P Load (Base)</label>
                             <input type="number" value="${bus.P_load_base.toFixed(3)}" step="0.01" min="0" 
-                                class="w-full config-input text-sm" onchange="updateSystemParameter(${bus.id}, 'P_load_base', this.value)">
+                                class="w-full config-input text-sm" onchange="updateSystemParameter(${bus.id}, 'P_load_base', this.value)" aria-label="Base P Load for Bus ${bus.id}">
                         </div>
                         <div class="flex-1 space-y-1">
                             <label class="block text-xs font-medium text-gray-600">Q Load (Base)</label>
                             <input type="number" value="${bus.Q_load_base.toFixed(3)}" step="0.01" min="0"
-                                class="w-full config-input text-sm" onchange="updateSystemParameter(${bus.id}, 'Q_load_base', this.value)">
+                                class="w-full config-input text-sm" onchange="updateSystemParameter(${bus.id}, 'Q_load_base', this.value)" aria-label="Base Q Load for Bus ${bus.id}">
                         </div>
                     </div>
                 `;
@@ -1747,12 +1767,12 @@
                                 <div class="flex-1 space-y-1">
                                     <label class="block text-xs font-medium text-gray-600">P Gen</label>
                                     <input type="number" value="${bus.P_gen_base.toFixed(3)}" step="0.01" min="0" 
-                                        class="w-full config-input text-sm" onchange="updateSystemParameter(${bus.id}, 'P_gen_base', this.value)">
+                                        class="w-full config-input text-sm" onchange="updateSystemParameter(${bus.id}, 'P_gen_base', this.value)" aria-label="Base P Generation for Bus ${bus.id}">
                                 </div>
                                 <div class="flex-1 space-y-1">
                                     <label class="block text-xs font-medium text-gray-600">V Set</label>
                                     <input type="number" value="${bus.V.toFixed(3)}" step="0.001" min="0.95" max="1.10"
-                                        class="w-full config-input text-sm" onchange="updateSystemParameter(${bus.id}, 'V', this.value)">
+                                        class="w-full config-input text-sm" onchange="updateSystemParameter(${bus.id}, 'V', this.value)" aria-label="Set Voltage V for Bus ${bus.id}">
                                 </div>
                             </div>
                         `;
@@ -1765,12 +1785,12 @@
                             <div class="space-y-1 pt-2 border-t border-gray-200">
                                 <label class="block text-xs font-bold text-accent-blue">DG Control (Bus ${bus.id})</label>
                                 <label class="block text-xs font-medium text-gray-600">DG Status (Cap: ${bus.DG_capacity} p.u.)</label>
-                                <select class="line-select" onchange="updateSystemParameter(${bus.id}, 'DG_status', this.value)">
+                                <select class="line-select" onchange="updateSystemParameter(${bus.id}, 'DG_status', this.value)" aria-label="DG Status for Bus ${bus.id}">
                                     <option value="On" ${bus.DG_status === 'On' ? 'selected' : ''}>ON</option>
                                     <option value="Off" ${bus.DG_status === 'Off' ? 'selected' : ''}>OFF</option>
                                 </select>
                                 <label class="block text-xs font-medium text-gray-600">Q Control</label>
-                                <select class="line-select" onchange="updateSystemParameter(${bus.id}, 'DG_Q_mode', this.value)">
+                                <select class="line-select" onchange="updateSystemParameter(${bus.id}, 'DG_Q_mode', this.value)" aria-label="DG Q Control Mode for Bus ${bus.id}">
                                     <option value="Unity" ${bus.DG_Q_mode === 'Unity' ? 'selected' : ''}>Unity (PF=1)</option>
                                     <option value="Boost V" ${bus.DG_Q_mode === 'Boost V' ? 'selected' : ''}>Boost V (+Q)</option>
                                     <option value="Absorb Q" ${bus.DG_Q_mode === 'Absorb Q' ? 'selected' : ''}>Absorb Q (-Q)</option>
@@ -1787,7 +1807,7 @@
                                 <label class="block text-xs font-bold text-green-600">Capacitor Bank (MVAR)</label>
                                 <label class="block text-xs font-medium text-gray-600">MVAR Inject (Max: ${bus.capacitor_mvar_max.toFixed(1)})</label>
                                 <input type="number" value="${bus.capacitor_mvar.toFixed(1)}" step="0.1" min="0" max="${bus.capacitor_mvar_max}"
-                                    class="w-full config-input text-sm" onchange="updateSystemParameter(${bus.id}, 'capacitor_mvar', this.value)">
+                                    class="w-full config-input text-sm" onchange="updateSystemParameter(${bus.id}, 'capacitor_mvar', this.value)" aria-label="Capacitor MVAR Injection for Bus ${bus.id}">
                             </div>
                         `;
                     }
@@ -1800,7 +1820,7 @@
                                 <label class="block text-xs font-bold text-accent-blue">Demand Response (DR)</label>
                                 <label class="block text-xs font-medium text-gray-600">P Reduction (p.u.)</label>
                                 <input type="number" value="${bus.DR_reduction.toFixed(3)}" step="0.01" min="0" max="${bus.P_load_base * 0.5}"
-                                    class="w-full config-input text-sm" onchange="updateSystemParameter(${bus.id}, 'DR_reduction', this.value)">
+                                    class="w-full config-input text-sm" onchange="updateSystemParameter(${bus.id}, 'DR_reduction', this.value)" aria-label="DR P Reduction for Bus ${bus.id}">
                             </div>
                         `;
                     }
@@ -1820,10 +1840,11 @@
 
         /** Sets the currently selected fault bus and updates the UI (SVG). */
         function selectFaultBus(busId) {
-            if (busId >= 1 && busId <= 15) {
-                selectedFaultBus = busId;
-                document.getElementById('faultBus').value = busId;
-                document.getElementById('currentFaultBus').textContent = busId;
+            const inputBus = parseInt(busId);
+            if (inputBus >= 1 && inputBus <= 15) {
+                selectedFaultBus = inputBus;
+                document.getElementById('faultBus').value = inputBus;
+                document.getElementById('currentFaultBus').textContent = inputBus;
                 displayNetworkTopology(lfResults);
             }
         }
@@ -1855,10 +1876,7 @@
             }
         }
         
-        // Stored initial line configuration for N-1 reset
-        // The declaration below is now redundant and removed to fix the SyntaxError.
-        // let originalLineData = []; 
-
+        
         /**
          * Initializes all system data: buses (with kV levels), coordinates, and lines.
          */
@@ -2114,6 +2132,13 @@
             document.getElementById('loadProfileTime').value = CURRENT_LOAD_PROFILE;
             // 5. Update DG Intermittency text
             document.getElementById('dgIntermittencyValue').textContent = `${DG_CAPACITY_FACTOR * 100}%`;
+            
+            // Fix: Initialize ARIA labels for tabs
+            document.getElementById('tabLF').setAttribute('aria-selected', 'true');
+            document.getElementById('tabLFIterative').setAttribute('aria-selected', 'false');
+            document.getElementById('tabSC').setAttribute('aria-selected', 'false');
+            document.getElementById('tabCompliance').setAttribute('aria-selected', 'false');
+            
         });
     </script>
 </body>
