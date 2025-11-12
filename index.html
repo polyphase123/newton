@@ -191,6 +191,19 @@
                         <svg class="w-5 h-5 mr-2 text-primary" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M11 17h2v-6h-2v6zm5-14H8v2h8V3zM4 10h16v2H4v-2zm0 4h16v2H4v-2z"></path></svg>
                         Global Grid Controls
                     </h3>
+
+                    <!-- Project Scenario Toggle -->
+                    <div class="p-3 mb-4 bg-primary rounded-lg border border-primary-dark space-y-3">
+                        <h4 class="text-md font-bold text-white flex items-center mb-2">
+                            <svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
+                            Simulation Scenario
+                        </h4>
+                        <select id="scenarioToggle" class="w-full p-2 rounded-lg bg-white border border-gray-300 text-text-dark focus:ring-secondary focus:border-secondary" onchange="toggleScenario(this.value)">
+                            <option value="Traditional">Traditional Grid (No Solar/BESS)</option>
+                            <option value="Smart">Smart Grid (Solar/BESS Enabled)</option>
+                        </select>
+                        <p id="scenarioDescription" class="text-xs text-white pt-1">Current: Traditional grid operation based solely on central generation and passive load management.</p>
+                    </div>
                     
                     <!-- Editable Load Profile Multipliers -->
                     <div id="loadProfileMultipliers" class="p-3 mb-4 bg-gray-100 rounded-lg border border-gray-300 space-y-3">
@@ -447,20 +460,31 @@
         let NUM_BUSES = 15; // Now dynamic
         let NUM_LINES = 32; // Now dynamic
         
+        // --- SCENARIO STATE ---
+        let CURRENT_SCENARIO = 'Traditional'; // Added state variable for scenario
+        
         // --- FEATURE 1: LOAD PROFILES & MULTIPLIERS (TOU Rates Removed) ---
         // Profile names kept for dropdown, but multipliers are fetched from inputs
         const LOAD_PROFILES = {
             'Morning Peak (8-10h)': { 
                 Ind: 1.2, Com: 1.1, Res: 0.9, 
+                Solar_Output: 0.2, // Solar output low/rising
+                Battery_P: -0.1 // Battery Charging slightly
             },
             'Midday (12-14h)':      { 
                 Ind: 0.9, Com: 1.0, Res: 0.8, 
+                Solar_Output: 1.0, // Solar peak
+                Battery_P: 0.0 // Battery neutral/floating
             },
             'Evening Peak (18-20h)': { 
                 Ind: 1.0, Com: 1.2, Res: 1.5,
+                Solar_Output: 0.0, // Solar off
+                Battery_P: 0.5 // Battery Discharging to meet residential peak
             },
             'Night Low (0-6h)':     { 
                 Ind: 0.8, Com: 0.6, Res: 0.5, 
+                Solar_Output: 0.0, // Solar off
+                Battery_P: -0.3 // Battery Charging from grid/low load
             }
         };
         // Editable Multipliers state
@@ -572,14 +596,31 @@
         // --- CORE UTILITY FUNCTIONS ---
 
         /**
+         * Toggles between Traditional Grid and Smart Grid (Solar/BESS) scenarios.
+         */
+        function toggleScenario(scenario) {
+            CURRENT_SCENARIO = scenario;
+            const desc = document.getElementById('scenarioDescription');
+
+            if (scenario === 'Smart') {
+                desc.innerHTML = 'Current: Smart grid enabled. Solar PV and BESS are active on Bus 15, operating based on the load profile time.';
+            } else {
+                desc.innerHTML = 'Current: Traditional grid operation based solely on central generation and passive load management.';
+            }
+
+            // Automatically re-run load flow when scenario changes
+            runLoadFlow(); 
+        }
+
+        /**
          * Updates the internal load multiplier values.
          */
         function updateLoadMultiplier(type, value) {
             const numValue = parseFloat(value);
             if (!isNaN(numValue) && numValue >= 0.1) {
                 CURRENT_MULTIPLIERS[type] = numValue;
-                // Since this changes the simulation conditions, encourage a re-run
-                console.log(`Load Multiplier for ${type} updated to: ${numValue}`);
+                // Automatically re-run load flow when multiplier changes
+                runLoadFlow(); 
             }
         }
 
@@ -599,6 +640,9 @@
             document.getElementById('indMultiplier').value = profile.Ind;
             document.getElementById('comMultiplier').value = profile.Com;
             document.getElementById('resMultiplier').value = profile.Res;
+
+            // *** FIX: Run Load Flow immediately when the profile changes ***
+            runLoadFlow(); 
         }
 
         /**
@@ -673,7 +717,9 @@
             let V_current = busData.map(b => b.V_result);
             let delta_current = busData.map(b => b.delta);
 
-            // Update system state based on features (DG Intermittency, Load Profile, Capacitor Banks)
+            const loadProfileData = LOAD_PROFILES[CURRENT_LOAD_PROFILE];
+
+            // Update system state based on features (DG Intermittency, Load Profile, Capacitor Banks, **Solar/BESS**)
             busData.forEach((bus) => {
                 
                 // 1. Apply Load Multipliers based on load_type and CURRENT_MULTIPLIERS
@@ -685,22 +731,40 @@
                 bus.P_load = bus.P_load_base * multiplier;
                 bus.Q_load = bus.Q_load_base * multiplier;
                 
-                // 2. DG Status, Feature 2 (Intermittency), and Q-Mode update
-                if (bus.DG_status === 'On') {
-                    // P_gen scales with DG_CAPACITY_FACTOR (Intermittency)
-                    bus.P_gen = bus.DG_capacity * DG_CAPACITY_FACTOR;
-                    
-                    // Q_gen logic
-                    if (bus.DG_Q_mode === 'Boost V') {
-                        bus.Q_gen = bus.DG_capacity * 0.2; 
-                    } else if (bus.DG_Q_mode === 'Absorb Q') {
-                        bus.Q_gen = -bus.DG_capacity * 0.1; 
-                    } else {
-                        bus.Q_gen = 0.0; 
-                    }
-                } else if (bus.DG_status === 'Off' || bus.DG_status === 'N/A') {
+                // Reset P_gen/Q_gen for non-Slack/PV buses before applying distributed generation/storage logic
+                if (bus.type !== 'Slack' && bus.type !== 'PV') {
                     bus.P_gen = 0.0;
                     bus.Q_gen = 0.0;
+                }
+                
+                // --- SMART GRID SCENARIO (Solar PV + BESS on Bus 15) ---
+                if (CURRENT_SCENARIO === 'Smart' && bus.id === 15) {
+                    // Solar Generation (P_gen is positive)
+                    const solarGen = bus.solar_capacity * loadProfileData.Solar_Output * DG_CAPACITY_FACTOR;
+                    bus.P_gen += solarGen;
+                    
+                    // BESS Operation (P_gen > 0 is discharge, P_gen < 0 is charge)
+                    const bessP = bus.bess_capacity * loadProfileData.Battery_P;
+                    bus.P_gen += bessP; 
+                }
+
+                // 2. DG Status, Feature 2 (Intermittency), and Q-Mode update (Applies to all buses with DG)
+                if (bus.DG_capacity > 0 && bus.DG_status === 'On') {
+                    // P_gen scales with DG_CAPACITY_FACTOR (Intermittency) - only if not Bus 15 (which is handled above)
+                    if (bus.id !== 15) {
+                        bus.P_gen = bus.DG_capacity * DG_CAPACITY_FACTOR;
+                    }
+                    
+                    // Q_gen logic (applies to all DGs including Bus 15, if configured)
+                    if (bus.DG_Q_mode === 'Boost V') {
+                        bus.Q_gen += bus.DG_capacity * 0.2; 
+                    } else if (bus.DG_Q_mode === 'Absorb Q') {
+                        bus.Q_gen += -bus.DG_capacity * 0.1; 
+                    } else {
+                        // bus.Q_gen += 0.0; // Unity PF
+                    }
+                } else if (bus.DG_status === 'Off' || bus.DG_status === 'N/A') {
+                    // No DG contribution if off
                 }
                 
                 // 3. Feature 3: Capacitor Bank/VAR Compensation (Adds to Q_gen)
@@ -1506,10 +1570,21 @@
                     const bus = busData.find(b => b.id === busId);
                     if (!bus) return;
                     modalTitle = `Bus ${busId} Status Summary (${bus.kv_level}kV)`;
+                    
+                    let smartGridInfo = '';
+                    if (bus.id === 15) {
+                        smartGridInfo = `<p class="mt-2 font-bold text-primary">Smart Grid Components (B15):</p>
+                                         <ul class="list-disc list-inside space-y-1 ml-4 text-xs">
+                                             <li>Solar PV Cap: ${bus.solar_capacity.toFixed(2)} p.u.</li>
+                                             <li>BESS Cap: ${bus.bess_capacity.toFixed(2)} p.u.</li>
+                                         </ul>`;
+                    }
+
                     modalContent = `<p><strong>Load Type:</strong> ${bus.load_type}</p>
                                     <p><strong>P Load (Current):</strong> ${bus.P_load.toFixed(3)} p.u. (Base: ${bus.P_load_base.toFixed(3)} p.u.)</p>
                                     <p><strong>Q Gen (Capacitor):</strong> ${bus.capacitor_mvar.toFixed(1)} MVAR</p>
                                     <p><strong>DG Status:</strong> ${bus.DG_status} (Cap: ${bus.DG_capacity} p.u.)</p>
+                                    ${smartGridInfo}
                                     <p class="mt-3 font-bold">Key Code Metrics:</p>
                                     <ul class="list-disc list-inside space-y-1">
                                         <li>Voltage Magnitude (PGC): <span class="${bus.V_result >= VOLTAGE_LIMIT_MIN ? 'text-code-pass' : 'text-code-fail'}">${bus.V_result.toFixed(4)} p.u.</span></li>
@@ -1542,9 +1617,9 @@
             
             // Check for N-1 trip
             const trippedLine = lineData.find(l => !l.active && !originalLineData.find(ol => ol.id === l.id).active); 
-            let messageText = `Load Flow completed using **${method}** method simulation. ${lineData.filter(l => l.active).length}/${NUM_LINES} wires active.`;
+            let messageText = `Load Flow completed using **${method}** method simulation. ${lineData.filter(l => l.active).length}/${NUM_LINES} wires active. Scenario: **${CURRENT_SCENARIO} Grid**.`;
             if (trippedLine) {
-                 messageText = `<span class="text-red-600 font-bold">N-1 Contingency: Line ${trippedLine.from}-${trippedLine.to} (ID: ${trippedLine.id}) is tripped.</span>`;
+                 messageText = `<span class="text-red-600 font-bold">N-1 Contingency: Line ${trippedLine.from}-${trippedLine.to} (ID: ${trippedLine.id}) is tripped.</span> Scenario: **${CURRENT_SCENARIO} Grid**.`;
             }
 
             let tableHTML = `
@@ -1569,6 +1644,17 @@
                 let colorClass = (res.V < 0.93) ? 'text-red-600 font-bold' : (res.V < 0.97) ? 'text-yellow-600 font-semibold' : (res.V > 1.04) ? 'text-primary font-semibold' : 'text-code-pass';
                 const thdColorClass = bus.thd_value <= HARMONIC_LIMIT_THD ? 'text-code-pass' : 'text-code-fail font-bold';
                 
+                let pGenText = bus.P_gen.toFixed(3);
+                
+                if (bus.id === 15 && CURRENT_SCENARIO === 'Smart') {
+                    const profile = LOAD_PROFILES[CURRENT_LOAD_PROFILE];
+                    const solar = (bus.solar_capacity * profile.Solar_Output * DG_CAPACITY_FACTOR).toFixed(3);
+                    const bess = (bus.bess_capacity * profile.Battery_P).toFixed(3);
+                    pGenText = `${bus.P_gen.toFixed(3)} (S:${solar}, B:${bess})`;
+                } else if (bus.DG_status === 'On') {
+                    pGenText += ' (DG ON)';
+                }
+
                 tableHTML += `
                     <tr>
                         <td class="font-bold">${bus.id}</td>
@@ -1576,7 +1662,7 @@
                         <td>${bus.load_type}</td>
                         <td class="${colorClass}">${res.V.toFixed(4)}</td>
                         <td>${bus.P_load.toFixed(3)}</td>
-                        <td>${bus.P_gen.toFixed(3)} ${bus.DG_status === 'On' ? '(DG ON)' : ''}</td>
+                        <td>${pGenText}</td>
                         <td class="${thdColorClass}">${bus.thd_value.toFixed(2)}</td>
                     </tr>
                 `;
@@ -1926,6 +2012,29 @@
                         `;
                     }
                     
+                    // --- Solar and BESS Control (Bus 15 only) ---
+                    if (bus.id === 15) {
+                        smartGridFields += `
+                            <div class="space-y-1 pt-2 border-t border-gray-200">
+                                <label class="block text-xs font-bold text-orange-600">Solar PV & BESS (Bus 15)</label>
+                                <div class="flex space-x-2">
+                                    <div class="flex-1 space-y-1">
+                                        <label class="block text-xs font-medium text-gray-600">Solar PV Cap. (p.u.)</label>
+                                        <input type="number" value="${bus.solar_capacity.toFixed(2)}" step="0.1" min="0" 
+                                            class="w-full config-input text-sm" onchange="updateSystemParameter(${bus.id}, 'solar_capacity', this.value)">
+                                    </div>
+                                    <div class="flex-1 space-y-1">
+                                        <label class="block text-xs font-medium text-gray-600">BESS Cap. (p.u.)</label>
+                                        <input type="number" value="${bus.bess_capacity.toFixed(2)}" step="0.1" min="0"
+                                            class="w-full config-input text-sm" onchange="updateSystemParameter(${bus.id}, 'bess_capacity', this.value)">
+                                    </div>
+                                </div>
+                                <p class="text-xs text-gray-500">BESS/Solar are only active when Smart Grid scenario is selected.</p>
+                            </div>
+                        `;
+                    }
+
+
                     // Feature 3: Capacitor Bank
                     if (bus.capacitor_mvar_max > 0) {
                         smartGridFields += `
@@ -2043,7 +2152,9 @@
                 DR_enabled: true, 
                 DR_reduction: 0.0,
                 capacitor_mvar_max: 10.0, 
-                capacitor_mvar: 0.0
+                capacitor_mvar: 0.0,
+                solar_capacity: 0.0, // New property
+                bess_capacity: 0.0   // New property
             });
             NUM_BUSES = busData.length;
 
@@ -2192,7 +2303,10 @@
                     DR_reduction: 0.0,
                     // Feature 3: Capacitor Banks
                     capacitor_mvar_max: capMax, 
-                    capacitor_mvar: 0.0
+                    capacitor_mvar: 0.0,
+                    // NEW Solar PV / BESS features (Bus 15 is the residential end-point)
+                    solar_capacity: (i === 15) ? 1.0 : 0.0, 
+                    bess_capacity: (i === 15) ? 0.5 : 0.0 
                 });
             }
             
@@ -2318,12 +2432,15 @@
             const numValue = parseFloat(value);
             
             // Handle Bus Parameters
-            if (key === 'P_gen_base' || key === 'V' || key === 'P_load_base' || key === 'Q_load_base' || key === 'DR_reduction' || key === 'capacitor_mvar') {
+            if (key === 'P_gen_base' || key === 'V' || key === 'P_load_base' || key === 'Q_load_base' || key === 'DR_reduction' || key === 'capacitor_mvar' || key === 'solar_capacity' || key === 'bess_capacity') {
                 const bus = busData.find(b => b.id === id);
                 if (bus && !isNaN(numValue)) {
                     if (key === 'capacitor_mvar') {
                         // Clamp capacitor MVAR to max
                         bus[key] = Math.max(0, Math.min(bus.capacitor_mvar_max, numValue));
+                    } else if (key === 'solar_capacity' || key === 'bess_capacity') {
+                        // Solar/BESS capacity clamp (0 to 2.0 p.u.)
+                        bus[key] = Math.max(0, Math.min(2.0, numValue)); 
                     } else {
                         bus[key] = numValue;
                     }
@@ -2389,6 +2506,10 @@
             updateLoadProfile(CURRENT_LOAD_PROFILE);
             // 5. Update DG Intermittency text
             document.getElementById('dgIntermittencyValue').textContent = `${DG_CAPACITY_FACTOR * 100}%`;
+            
+            // Set initial scenario toggle state
+            document.getElementById('scenarioToggle').value = CURRENT_SCENARIO;
+            toggleScenario(CURRENT_SCENARIO); 
         });
         
         // Add a listener to redraw the SVG on window resize
