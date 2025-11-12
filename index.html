@@ -603,7 +603,7 @@
             const desc = document.getElementById('scenarioDescription');
 
             if (scenario === 'Smart') {
-                desc.innerHTML = 'Current: Smart grid enabled. Solar PV and BESS are active on Bus 15, operating based on the load profile time.';
+                desc.innerHTML = 'Current: Smart grid enabled. Solar PV and BESS are active on all buses with capacity, operating based on the load profile time.';
             } else {
                 desc.innerHTML = 'Current: Traditional grid operation based solely on central generation and passive load management.';
             }
@@ -737,8 +737,8 @@
                     bus.Q_gen = 0.0;
                 }
                 
-                // --- SMART GRID SCENARIO (Solar PV + BESS on Bus 15) ---
-                if (CURRENT_SCENARIO === 'Smart' && bus.id === 15) {
+                // --- SMART GRID SCENARIO (Solar PV + BESS on any bus with capacity) ---
+                if (CURRENT_SCENARIO === 'Smart' && (bus.solar_capacity > 0 || bus.bess_capacity > 0)) {
                     // Solar Generation (P_gen is positive)
                     const solarGen = bus.solar_capacity * loadProfileData.Solar_Output * DG_CAPACITY_FACTOR;
                     bus.P_gen += solarGen;
@@ -750,18 +750,19 @@
 
                 // 2. DG Status, Feature 2 (Intermittency), and Q-Mode update (Applies to all buses with DG)
                 if (bus.DG_capacity > 0 && bus.DG_status === 'On') {
-                    // P_gen scales with DG_CAPACITY_FACTOR (Intermittency) - only if not Bus 15 (which is handled above)
-                    if (bus.id !== 15) {
-                        bus.P_gen = bus.DG_capacity * DG_CAPACITY_FACTOR;
+                    // P_gen scales with DG_CAPACITY_FACTOR (Intermittency) 
+                    // Note: If Solar/BESS is also present, it gets combined.
+                    if (bus.type === 'PQ') {
+                        bus.P_gen += bus.DG_capacity * DG_CAPACITY_FACTOR;
                     }
-                    
-                    // Q_gen logic (applies to all DGs including Bus 15, if configured)
+
+                    // Q_gen logic (applies to all DGs)
                     if (bus.DG_Q_mode === 'Boost V') {
                         bus.Q_gen += bus.DG_capacity * 0.2; 
                     } else if (bus.DG_Q_mode === 'Absorb Q') {
                         bus.Q_gen += -bus.DG_capacity * 0.1; 
                     } else {
-                        // bus.Q_gen += 0.0; // Unity PF
+                        // Unity PF
                     }
                 } else if (bus.DG_status === 'Off' || bus.DG_status === 'N/A') {
                     // No DG contribution if off
@@ -1572,8 +1573,8 @@
                     modalTitle = `Bus ${busId} Status Summary (${bus.kv_level}kV)`;
                     
                     let smartGridInfo = '';
-                    if (bus.id === 15) {
-                        smartGridInfo = `<p class="mt-2 font-bold text-primary">Smart Grid Components (B15):</p>
+                    if (bus.solar_capacity > 0 || bus.bess_capacity > 0) {
+                        smartGridInfo = `<p class="mt-2 font-bold text-primary">Smart Grid Components (Bus ${busId}):</p>
                                          <ul class="list-disc list-inside space-y-1 ml-4 text-xs">
                                              <li>Solar PV Cap: ${bus.solar_capacity.toFixed(2)} p.u.</li>
                                              <li>BESS Cap: ${bus.bess_capacity.toFixed(2)} p.u.</li>
@@ -1646,7 +1647,7 @@
                 
                 let pGenText = bus.P_gen.toFixed(3);
                 
-                if (bus.id === 15 && CURRENT_SCENARIO === 'Smart') {
+                if ((bus.solar_capacity > 0 || bus.bess_capacity > 0) && CURRENT_SCENARIO === 'Smart') {
                     const profile = LOAD_PROFILES[CURRENT_LOAD_PROFILE];
                     const solar = (bus.solar_capacity * profile.Solar_Output * DG_CAPACITY_FACTOR).toFixed(3);
                     const bess = (bus.bess_capacity * profile.Battery_P).toFixed(3);
@@ -2012,11 +2013,11 @@
                         `;
                     }
                     
-                    // --- Solar and BESS Control (Bus 15 only) ---
-                    if (bus.id === 15) {
+                    // --- Solar and BESS Control (Applied to all non-Slack buses with capacity) ---
+                    if (bus.solar_capacity > 0 || bus.bess_capacity > 0) {
                         smartGridFields += `
                             <div class="space-y-1 pt-2 border-t border-gray-200">
-                                <label class="block text-xs font-bold text-orange-600">Solar PV & BESS (Bus 15)</label>
+                                <label class="block text-xs font-bold text-orange-600">Solar PV & BESS (Bus ${bus.id})</label>
                                 <div class="flex space-x-2">
                                     <div class="flex-1 space-y-1">
                                         <label class="block text-xs font-medium text-gray-600">Solar PV Cap. (p.u.)</label>
@@ -2153,8 +2154,8 @@
                 DR_reduction: 0.0,
                 capacitor_mvar_max: 10.0, 
                 capacitor_mvar: 0.0,
-                solar_capacity: 0.0, // New property
-                bess_capacity: 0.0   // New property
+                solar_capacity: 0.5, // Added default capacity to new bus
+                bess_capacity: 0.2   // Added default capacity to new bus
             });
             NUM_BUSES = busData.length;
 
@@ -2277,6 +2278,9 @@
                 
                 let drEnabled = (type === 'PQ'); // Enable DR on all PQ buses (non-Slack, non-PV)
                 
+                // Set Solar PV / BESS capacity on all non-Slack/PV buses (3 through 15)
+                const isEligibleForSmartAssets = (i !== 1 && i !== 2);
+                
                 busData.push({
                     id: i,
                     type: type,
@@ -2304,9 +2308,9 @@
                     // Feature 3: Capacitor Banks
                     capacitor_mvar_max: capMax, 
                     capacitor_mvar: 0.0,
-                    // NEW Solar PV / BESS features (Bus 15 is the residential end-point)
-                    solar_capacity: (i === 15) ? 1.0 : 0.0, 
-                    bess_capacity: (i === 15) ? 0.5 : 0.0 
+                    // Solar PV / BESS features now on all eligible buses
+                    solar_capacity: isEligibleForSmartAssets ? 0.5 : 0.0, 
+                    bess_capacity: isEligibleForSmartAssets ? 0.2 : 0.0 
                 });
             }
             
