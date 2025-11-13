@@ -128,6 +128,17 @@
         .bus-marker:active {
             cursor: grabbing;
         }
+        /* Styling for the clickable cell headers in compliance tab */
+        .compliance-header-link {
+            cursor: pointer;
+            text-decoration: underline;
+            text-decoration-color: #3b82f6; /* accent-blue */
+            text-underline-offset: 4px;
+            transition: color 0.15s;
+        }
+        .compliance-header-link:hover {
+             color: #3b82f6; /* accent-blue */
+        }
     </style>
 </head>
 <body class="p-4 sm:p-8">
@@ -657,7 +668,7 @@
                 const mousePos = getMousePosition(evt);
                 offset = {
                     x: mousePos.x - currentCoords.x,
-                    y: newPos.y - currentCoords.y 
+                    y: mousePos.y - currentCoords.y // Corrected offset calculation
                 };
             }
         }
@@ -694,9 +705,9 @@
             const desc = document.getElementById('scenarioDescription');
 
             if (scenario === 'Smart') {
-                desc.innerHTML = 'Current: Smart grid enabled. Solar PV and BESS are active on all buses with capacity, operating based on the load profile time.';
+                desc.innerHTML = 'Current: **Smart Grid** enabled. Solar PV and BESS are active on all buses with capacity, operating based on the load profile time.';
             } else {
-                desc.innerHTML = 'Current: Traditional grid operation based solely on central generation and passive load management.';
+                desc.innerHTML = 'Current: **Traditional Grid** operation based solely on central generation and passive load management. Solar PV and BESS generation are set to zero.';
             }
 
             // Automatically re-run load flow when scenario changes
@@ -720,23 +731,27 @@
             const profile = LOAD_PROFILES[profileName];
             const displayDiv = document.getElementById('loadProfileDisplay');
             
-            // Determine BESS mode for display
+            let solarOutput = profile.Solar_Output;
+            let batteryP = profile.Battery_P;
             let bessMode = 'Neutral (0 p.u.)';
             let bessColor = 'text-gray-700';
 
-            if (CURRENT_SCENARIO === 'Smart') {
-                if (profile.Battery_P > 0) {
-                    bessMode = `Discharging (+${profile.Battery_P.toFixed(1)} P)`;
+            // Override Solar/BESS display if Traditional Grid is selected
+            if (CURRENT_SCENARIO === 'Traditional') {
+                solarOutput = 0.0;
+                batteryP = 0.0;
+                bessMode = 'N/A (Traditional Grid)';
+                bessColor = 'text-gray-500';
+            } else {
+                if (batteryP > 0) {
+                    bessMode = `Discharging (+${batteryP.toFixed(1)} P)`;
                     bessColor = 'text-red-600 font-bold';
-                } else if (profile.Battery_P < 0) {
-                    bessMode = `Charging (${profile.Battery_P.toFixed(1)} P)`;
+                } else if (batteryP < 0) {
+                    bessMode = `Charging (${batteryP.toFixed(1)} P)`;
                     bessColor = 'text-blue-600 font-bold';
                 } else {
                     bessColor = 'text-gray-500';
                 }
-            } else {
-                 bessMode = 'N/A (Traditional Grid)';
-                 bessColor = 'text-gray-500';
             }
 
 
@@ -746,7 +761,7 @@
                     <div class="font-bold text-text-dark border-b border-gray-300 pb-1">Smart Grid Operation:</div>
                     
                     <div class="text-xs text-gray-700">Industrial ($\times$): <span class="font-semibold text-load-ind">${profile.Ind.toFixed(1)}</span></div>
-                    <div class="text-xs text-gray-700">Solar PV Output ($\times$): <span class="font-semibold text-secondary">${(profile.Solar_Output * 100).toFixed(0)}%</span></div>
+                    <div class="text-xs text-gray-700">Solar PV Output ($\times$): <span class="font-semibold text-secondary">${(solarOutput * 100).toFixed(0)}%</span></div>
                     
                     <div class="text-xs text-gray-700">Commercial ($\times$): <span class="font-semibold text-load-com">${profile.Com.toFixed(1)}</span></div>
                     <div class="text-xs text-gray-700">BESS Status (p.u.): <span class="${bessColor}">${bessMode}</span></div>
@@ -884,6 +899,8 @@
                     const bessP = bus.bess_capacity * loadProfileData.Battery_P;
                     bus.P_gen += bessP; 
                 }
+                // NOTE: If CURRENT_SCENARIO is 'Traditional', P_gen (solar/bess contribution) remains 0.0, fulfilling the user request.
+
 
                 // 2. DG Status, Feature 2 (Intermittency), and Q-Mode update (Applies to all buses with DG)
                 if (bus.DG_capacity > 0 && bus.DG_status === 'On') {
@@ -1297,9 +1314,9 @@
                         <tr class="bg-gray-200">
                             <th>Bus ID (kV)</th>
                             <th>V Mag. (p.u.)</th>
-                            <th class="cursor-pointer" onclick="openCodeDetails('PGC_V')">PGC V Check</th>
-                            <th class="cursor-pointer" onclick="openCodeDetails('PEC_VD')">PEC V Drop</th>
-                            <th class="cursor-pointer" onclick="openCodeDetails('PGC_THD')">THD (%)</th>
+                            <th class="compliance-header-link" onclick="openCodeDetails('PGC_V')">PGC V Check</th>
+                            <th class="compliance-header-link" onclick="openCodeDetails('PEC_VD')">PEC V Drop</th>
+                            <th class="compliance-header-link" onclick="openCodeDetails('PGC_THD')">THD (%)</th>
                             <th>Cap MVAR</th>
                         </tr>
                     </thead>
@@ -1354,8 +1371,8 @@
                             <th>Breaker Model</th>
                             <th>ANSI Relay</th>
                             <th>Current (A)</th>
-                            <th class="cursor-pointer" onclick="openCodeDetails('PEC_AMP')">Ampacity Check</th>
-                            <th class="cursor-pointer" onclick="openCodeDetails('PEC_SC')">SCA Rating Check</th>
+                            <th class="compliance-header-link" onclick="openCodeDetails('PEC_AMP')">Ampacity Check</th>
+                            <th class="compliance-header-link" onclick="openCodeDetails('PEC_SC')">SCA Rating Check</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -1464,8 +1481,9 @@
 
             let html = `<p class="font-bold text-lg text-text-dark">Results Overview</p>`;
             html += `<ul class="list-disc list-inside space-y-1">`;
-            html += `<li class="${postViolations > 0 ? 'text-code-fail' : 'text-code-fix'}">Compliance improved from ${preViolations} to ${postViolations} total violations.</li>`;
+            // REMOVED: `<li class="${postViolations > 0 ? 'text-code-fail' : 'text-code-fix'}">Compliance improved from ${preViolations} to ${postViolations} total violations.</li>`;
             html += `<li>Average System Voltage increased by <span class="font-semibold text-code-fix">${deltaV.toFixed(4)} p.u.</span> (From ${optimizationTrack.preAvgV.toFixed(4)} to ${postAvgV.toFixed(4)} p.u.).</li>`;
+            html += `<li class="${postViolations > 0 ? 'text-code-fail' : 'text-code-fix'}">System now has **${postViolations}** remaining compliance violation(s).</li>`; // Added cleaner status line
             html += `</ul>`;
 
             // --- Equipment Upgrades ---
@@ -1690,6 +1708,9 @@
             let bessPData = [];
             let netLoadData = [];
             
+            // Check if Smart Grid is active for chart data calculation
+            const isSmartGrid = CURRENT_SCENARIO === 'Smart';
+
             for (let i = 0; i < 24; i++) {
                 const hourlyMultiplier = HOURLY_SHAPES[loadKey][i];
                 const P_load = P_load_base_pu * hourlyMultiplier;
@@ -1697,12 +1718,11 @@
                 let P_gen_solar = 0;
                 let P_gen_bess = 0;
                 
-                if (CURRENT_SCENARIO === 'Smart' && solarCapacity > 0) {
+                if (isSmartGrid && solarCapacity > 0) {
                     P_gen_solar = solarCapacity * HOURLY_SHAPES.Solar_Output[i] * DG_CAPACITY_FACTOR;
                 }
                 
-                if (CURRENT_SCENARIO === 'Smart' && bessCapacity > 0) {
-                    // This uses the simplified BESS profile for visualization only
+                if (isSmartGrid && bessCapacity > 0) {
                     P_gen_bess = bessCapacity * HOURLY_SHAPES.Battery_P[i]; 
                 }
                 
@@ -1952,6 +1972,7 @@
                 
                 let pGenText = bus.P_gen.toFixed(3);
                 
+                // Check if Smart Grid is active for breakdown display
                 if ((bus.solar_capacity > 0 || bus.bess_capacity > 0) && CURRENT_SCENARIO === 'Smart') {
                     const profile = LOAD_PROFILES[CURRENT_LOAD_PROFILE];
                     const solar = (bus.solar_capacity * profile.Solar_Output * DG_CAPACITY_FACTOR).toFixed(3);
