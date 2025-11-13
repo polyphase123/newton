@@ -47,7 +47,7 @@
         body {
             background-color: #f3f4f6; 
             color: #1f2937; 
-            font-family: 'Inter', sans-serif;
+            font-family: 'Inter', 'sans-serif';
             min-height: 100vh;
         }
         /* Standard table styling */
@@ -331,6 +331,10 @@
                     <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 2L4 5v6.09c0 5.05 3.41 9.76 8 10.91 4.59-1.15 8-5.86 8-10.91V5l-8-3zm-1 14l-4-4 1.41-1.41L11 13.17l5.59-5.59L18 9l-7 7z"></path></svg>
                     Code Compliance
                 </button>
+                <button id="tabProfile" onclick="showResults('profile')" class="flex-shrink-0 px-4 py-2 text-lg font-semibold text-gray-500 hover:text-text-dark transition duration-300 flex items-center tab-button">
+                    <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-4h2v4zm4 0h-2V7h2v10zm4 0h-2v-7h2v7z"></path></svg>
+                    24 Hr Profile
+                </button>
             </div>
             
             <!-- Load Flow Summary -->
@@ -340,24 +344,25 @@
                     Run the Load Flow Analysis to view voltage magnitudes and angles across the system.
                 </div>
                 
-                <!-- Load Profile / TOU Pricing Control and Cost Summary -->
-                <div class="p-4 bg-gray-100 rounded-xl shadow-inner mb-4 flex justify-between items-center flex-wrap gap-4">
-                    <div class="flex items-center space-x-3">
-                        <label for="loadProfileTime" class="text-md font-semibold text-text-dark flex items-center">
-                            <svg class="w-5 h-5 mr-1 text-secondary" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93h2c0 3.86 3.14 7 7 7V19.93z"></path></svg>
-                            Simulated Load Profile:
-                        </label>
-                        <!-- Updated to use Load Profiles and trigger an update on change -->
-                        <select id="loadProfileTime" class="p-2 rounded-lg bg-white border border-gray-300 text-text-dark focus:ring-primary focus:border-primary" onchange="updateLoadProfile(this.value)">
-                            <option value="Morning Peak (8-10h)">Morning Peak (8-10h)</option>
-                            <option value="Midday (12-14h)">Midday (12-14h)</option>
-                            <option value="Evening Peak (18-20h)">Evening Peak (18-20h)</option>
-                            <option value="Night Low (0-6h)">Night Low (0-6h)</option>
-                        </select>
-                    </div>
-                    
-                    <div id="costSummary" class="text-lg font-bold text-text-dark">
-                        <!-- Removed Net Operating Cost Display -->
+                <!-- Load Profile / TOU Pricing Control and Load Profile Display (Updated structure) -->
+                <div class="p-4 bg-gray-100 rounded-xl shadow-inner mb-4">
+                    <h3 class="text-md font-semibold text-text-dark mb-3 flex items-center">
+                        <svg class="w-5 h-5 mr-1 text-secondary" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93h2c0 3.86 3.14 7 7 7V19.93z"></path></svg>
+                        Current Simulated Load Profile
+                    </h3>
+                    <div class="flex flex-wrap items-start justify-between gap-4">
+                        <div class="w-full sm:w-auto flex-shrink-0">
+                            <label for="loadProfileTime" class="block text-xs font-medium text-gray-700 mb-1">Select Time Window:</label>
+                            <select id="loadProfileTime" class="w-full sm:w-60 p-2 rounded-lg bg-white border border-gray-300 text-text-dark focus:ring-primary focus:border-primary" onchange="updateLoadProfile(this.value)">
+                                <option value="Morning Peak (8-10h)">Morning Peak (8-10h)</option>
+                                <option value="Midday (12-14h)">Midday (12-14h)</option>
+                                <option value="Evening Peak (18-20h)">Evening Peak (18-20h)</option>
+                                <option value="Night Low (0-6h)">Night Low (0-6h)</option>
+                            </select>
+                        </div>
+                        <div id="loadProfileDisplay" class="flex-1 min-w-[250px] p-2 bg-white rounded-lg border border-gray-300 shadow-inner">
+                            <!-- Dynamic profile values inserted here by JS -->
+                        </div>
                     </div>
                 </div>
                 
@@ -430,6 +435,26 @@
                 </div>
             </div>
 
+            <!-- 24 Hour Load Profile Tab (New) -->
+            <div id="profileResults" class="mt-4 hidden h-[450px]">
+                <h3 class="text-xl font-semibold text-text-dark mb-4 border-b border-gray-300 pb-2 flex items-center">
+                    <svg class="w-5 h-5 mr-2 text-primary" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"></path></svg>
+                    Bus Hourly Load & Generation Profile
+                </h3>
+                <div class="flex items-center space-x-3 mb-4">
+                    <label for="profileBusSelector" class="font-medium text-gray-700">Select Bus:</label>
+                    <select id="profileBusSelector" class="p-2 rounded-lg bg-gray-100 border border-gray-300 text-text-dark focus:ring-primary focus:border-primary w-24" onchange="renderHourlyProfileChart(parseInt(this.value))"></select>
+                    <span id="profileBusDetails" class="text-sm text-gray-500"></span>
+                </div>
+                <div class="p-4 bg-gray-50 rounded-xl shadow-inner">
+                    <div class="chart-container h-[350px]">
+                        <canvas id="hourlyProfileChart"></canvas>
+                    </div>
+                </div>
+                <p class="mt-4 text-xs text-gray-600 text-center">Note: This profile dynamically adjusts based on the selected **Smart Grid/Traditional** scenario.</p>
+            </div>
+
+
         </div>
     </div>
 
@@ -464,27 +489,43 @@
         let CURRENT_SCENARIO = 'Traditional'; // Added state variable for scenario
         
         // --- FEATURE 1: LOAD PROFILES & MULTIPLIERS (TOU Rates Removed) ---
-        // Profile names kept for dropdown, but multipliers are fetched from inputs
+        // Detailed hourly load shapes (arbitrary 24 points, scaled to fit peaks)
+        const HOURLY_SHAPES = {
+            // Index 0 to 23 (Hour 0 to Hour 23)
+            Industrial: [0.8, 0.75, 0.75, 0.8, 0.9, 1.0, 1.2, 1.3, 1.3, 1.2, 1.1, 1.05, 1.0, 1.0, 1.1, 1.15, 1.2, 1.2, 1.15, 1.1, 1.0, 0.9, 0.85, 0.8],
+            Commercial: [0.5, 0.4, 0.3, 0.4, 0.6, 0.8, 1.0, 1.2, 1.3, 1.4, 1.5, 1.4, 1.3, 1.3, 1.2, 1.1, 1.0, 0.9, 0.8, 0.7, 0.6, 0.55, 0.5, 0.5],
+            Residential: [0.5, 0.45, 0.4, 0.4, 0.5, 0.7, 0.9, 1.0, 0.9, 0.8, 0.7, 0.8, 0.9, 1.0, 1.2, 1.4, 1.6, 1.8, 1.7, 1.5, 1.2, 1.0, 0.8, 0.6],
+            // Solar PV Production Profile (peaks midday)
+            Solar_Output: [0.0, 0.0, 0.0, 0.0, 0.05, 0.2, 0.5, 0.8, 1.0, 1.0, 0.95, 0.9, 0.8, 0.6, 0.4, 0.1, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+            // Simplified BESS operation (Charge Night Low, Discharge Evening Peak)
+            Battery_P: [-0.3, -0.3, -0.3, -0.2, -0.1, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.1, 0.2, 0.5, 0.5, 0.4, 0.3, 0.0, -0.1, -0.2, -0.3]
+        };
+
+        // Profile names kept for dropdown, these correspond to general time periods
         const LOAD_PROFILES = {
             'Morning Peak (8-10h)': { 
                 Ind: 1.2, Com: 1.1, Res: 0.9, 
-                Solar_Output: 0.2, // Solar output low/rising
-                Battery_P: -0.1 // Battery Charging slightly
+                Solar_Output: 0.2, 
+                Battery_P: -0.1, 
+                time_indices: [8, 9] 
             },
             'Midday (12-14h)':      { 
                 Ind: 0.9, Com: 1.0, Res: 0.8, 
-                Solar_Output: 1.0, // Solar peak
-                Battery_P: 0.0 // Battery neutral/floating
+                Solar_Output: 1.0, 
+                Battery_P: 0.0,
+                time_indices: [12, 13] 
             },
             'Evening Peak (18-20h)': { 
                 Ind: 1.0, Com: 1.2, Res: 1.5,
-                Solar_Output: 0.0, // Solar off
-                Battery_P: 0.5 // Battery Discharging to meet residential peak
+                Solar_Output: 0.0, 
+                Battery_P: 0.5,
+                time_indices: [18, 19]
             },
             'Night Low (0-6h)':     { 
                 Ind: 0.8, Com: 0.6, Res: 0.5, 
-                Solar_Output: 0.0, // Solar off
-                Battery_P: -0.3 // Battery Charging from grid/low load
+                Solar_Output: 0.0, 
+                Battery_P: -0.3,
+                time_indices: [0, 1, 2, 3, 4, 5]
             }
         };
         // Editable Multipliers state
@@ -570,6 +611,7 @@
         let selectedFaultBus = 10;
         let busCoordinates = [];
         let voltageChartInstance = null; 
+        let hourlyProfileChartInstance = null; // New chart instance for 24hr profile
         
         let systemCosts = { totalLoadCost: 0, totalGenCredit: 0, netCost: 0, time: CURRENT_LOAD_PROFILE };
         
@@ -594,6 +636,55 @@
         const SVG_VIEWBOX_HEIGHT = 400;
         
         // --- CORE UTILITY FUNCTIONS ---
+        
+        // FIX: Moved drag functions to global scope
+        function getMousePosition(evt) {
+            const svg = document.getElementById('networkSVG');
+            const CTM = svg.getScreenCTM();
+            return {
+                x: (evt.clientX - CTM.e) / CTM.a,
+                y: (evt.clientY - CTM.f) / CTM.d
+            };
+        }
+
+        function startDrag(evt) {
+            if (evt.target.tagName === 'circle') {
+                isDragging = true;
+                const busId = parseInt(evt.target.parentNode.querySelector('text').textContent.trim());
+                selectedBusId = busId;
+                
+                const currentCoords = busCoordinates.find(b => b.id === selectedBusId);
+                const mousePos = getMousePosition(evt);
+                offset = {
+                    x: mousePos.x - currentCoords.x,
+                    y: newPos.y - currentCoords.y 
+                };
+            }
+        }
+
+        function drag(evt) {
+            if (!isDragging) return;
+            evt.preventDefault();
+            
+            const newPos = getMousePosition(evt);
+            const busCoord = busCoordinates.find(b => b.id === selectedBusId);
+            
+            if (busCoord) {
+                // Apply bounds check to SVG viewBox (0, 0) to (1000, 400)
+                const newX = Math.max(20, Math.min(SVG_VIEWBOX_WIDTH - 20, newPos.x - offset.x));
+                const newY = Math.max(20, Math.min(SVG_VIEWBOX_HEIGHT - 20, newPos.y - offset.y));
+
+                busCoord.x = newX;
+                busCoord.y = newY;
+                
+                displayNetworkTopology(lfResults);
+            }
+        }
+
+        function endDrag() {
+            isDragging = false;
+            selectedBusId = null;
+        }
 
         /**
          * Toggles between Traditional Grid and Smart Grid (Solar/BESS) scenarios.
@@ -623,6 +714,48 @@
                 runLoadFlow(); 
             }
         }
+        
+        /** New helper function to display profile summary */
+        function updateProfileDisplay(profileName) {
+            const profile = LOAD_PROFILES[profileName];
+            const displayDiv = document.getElementById('loadProfileDisplay');
+            
+            // Determine BESS mode for display
+            let bessMode = 'Neutral (0 p.u.)';
+            let bessColor = 'text-gray-700';
+
+            if (CURRENT_SCENARIO === 'Smart') {
+                if (profile.Battery_P > 0) {
+                    bessMode = `Discharging (+${profile.Battery_P.toFixed(1)} P)`;
+                    bessColor = 'text-red-600 font-bold';
+                } else if (profile.Battery_P < 0) {
+                    bessMode = `Charging (${profile.Battery_P.toFixed(1)} P)`;
+                    bessColor = 'text-blue-600 font-bold';
+                } else {
+                    bessColor = 'text-gray-500';
+                }
+            } else {
+                 bessMode = 'N/A (Traditional Grid)';
+                 bessColor = 'text-gray-500';
+            }
+
+
+            displayDiv.innerHTML = `
+                <div class="grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+                    <div class="font-bold text-text-dark border-b border-gray-300 pb-1">Load Multipliers:</div>
+                    <div class="font-bold text-text-dark border-b border-gray-300 pb-1">Smart Grid Operation:</div>
+                    
+                    <div class="text-xs text-gray-700">Industrial ($\times$): <span class="font-semibold text-load-ind">${profile.Ind.toFixed(1)}</span></div>
+                    <div class="text-xs text-gray-700">Solar PV Output ($\times$): <span class="font-semibold text-secondary">${(profile.Solar_Output * 100).toFixed(0)}%</span></div>
+                    
+                    <div class="text-xs text-gray-700">Commercial ($\times$): <span class="font-semibold text-load-com">${profile.Com.toFixed(1)}</span></div>
+                    <div class="text-xs text-gray-700">BESS Status (p.u.): <span class="${bessColor}">${bessMode}</span></div>
+                    
+                    <div class="text-xs text-gray-700">Residential ($\times$): <span class="font-semibold text-load-res">${profile.Res.toFixed(1)}</span></div>
+                    <div></div>
+                </div>
+            `;
+        }
 
         /**
          * Updates the simulated Load Profile (which sets P/Q multipliers and TOU rate).
@@ -641,7 +774,10 @@
             document.getElementById('comMultiplier').value = profile.Com;
             document.getElementById('resMultiplier').value = profile.Res;
 
-            // *** FIX: Run Load Flow immediately when the profile changes ***
+            // Call new display function
+            updateProfileDisplay(profileName);
+
+            // FIX: Run Load Flow immediately when the profile changes
             runLoadFlow(); 
         }
 
@@ -711,7 +847,7 @@
             let totalZ_active = 0;
             lineData.filter(line => line.active).forEach(line => { totalZ_active += line.Z_pu; });
             
-            const systemImpedanceFactor = totalZ_active > 0 ? totalZ_active / (NUM_LINES) : 1.0; 
+            const systemImpedanceFactor = totalZ_active > 0 ? totalZ_active / (NUM_LINES * 2) : 1.0; 
             const MAX_ITERATIONS = (method === 'NR') ? 4 : 8; 
             
             let V_current = busData.map(b => b.V_result);
@@ -728,8 +864,9 @@
                 if (bus.load_type === 'Commercial') multiplier = CURRENT_MULTIPLIERS.Com;
                 if (bus.load_type === 'Residential') multiplier = CURRENT_MULTIPLIERS.Res;
 
-                bus.P_load = bus.P_load_base * multiplier;
-                bus.Q_load = bus.Q_load_base * multiplier;
+                // Calculate scaled load (before DR adjustment)
+                let P_load_scaled = bus.P_load_base * multiplier;
+                let Q_load_scaled = bus.Q_load_base * multiplier;
                 
                 // Reset P_gen/Q_gen for non-Slack/PV buses before applying distributed generation/storage logic
                 if (bus.type !== 'Slack' && bus.type !== 'PV') {
@@ -768,18 +905,24 @@
                     // No DG contribution if off
                 }
                 
-                // 3. Feature 3: Capacitor Bank/VAR Compensation (Adds to Q_gen)
+                // 3. Demand Response (DR) applies AFTER scaling
+                let P_reduction = 0.0;
+                let Q_reduction = 0.0;
+
+                if (bus.DR_enabled && bus.DR_reduction > 0) {
+                    P_reduction = Math.min(bus.DR_reduction, bus.P_load_base * 0.5);
+                    Q_reduction = P_reduction * 0.5; // Simplified Q reduction
+                } 
+                
+                // Final Loads
+                bus.P_load = P_load_scaled - P_reduction;
+                bus.Q_load = Q_load_scaled - Q_reduction;
+
+                // 4. Feature 3: Capacitor Bank/VAR Compensation (Adds to Q_gen)
                 if (bus.capacitor_mvar > 0) {
                     // Capacitor MVAR is in actual MVAR. Convert to p.u. (MVAR / BASE_MVA)
                     bus.Q_gen += (bus.capacitor_mvar / BASE_MVA);
                 }
-                
-                // 4. Demand Response (DR)
-                if (bus.DR_enabled && bus.DR_reduction > 0) {
-                    const reduction = Math.min(bus.DR_reduction, bus.P_load_base * 0.5);
-                    bus.P_load -= reduction;
-                    bus.Q_load -= (reduction * 0.5); 
-                } 
                 
                 // THD calculation based on final load factor
                 const loadBase = bus.P_load_base * multiplier + bus.Q_load_base * multiplier;
@@ -1027,6 +1170,9 @@
                 runCodeComplianceAndSizing(results); 
                 renderVoltageProfileChart(results, methodToUse); 
                 showResults('loadFlow');
+                // Re-render the profile chart if the user is on that tab
+                const selectedBusId = parseInt(document.getElementById('profileBusSelector').value) || 3;
+                renderHourlyProfileChart(selectedBusId); 
             }, 1500);
         }
         
@@ -1517,6 +1663,153 @@
                 }
             });
         }
+        
+        /** Renders the hourly load profile chart (New Feature). */
+        function renderHourlyProfileChart(busId) {
+            const bus = busData.find(b => b.id === busId);
+            const selector = document.getElementById('profileBusSelector');
+            const detailsSpan = document.getElementById('profileBusDetails');
+            
+            if (!bus) return;
+
+            detailsSpan.textContent = `Type: ${bus.type}, Load Class: ${bus.load_type}, DG/Solar Cap: ${bus.solar_capacity.toFixed(2)} p.u.`;
+
+            // Data Generation: Calculate hourly load/gen values
+            const hourlyLabels = Array.from({length: 24}, (_, i) => `${i}:00`);
+            const P_load_base_pu = bus.P_load_base;
+            const Q_load_base_pu = bus.Q_load_base;
+            const loadType = bus.load_type;
+            const loadKey = loadType; 
+            
+            const solarCapacity = bus.solar_capacity;
+            const bessCapacity = bus.bess_capacity;
+
+            const basePLoadData = HOURLY_SHAPES[loadKey].map(multiplier => P_load_base_pu * multiplier);
+            
+            let solarGenData = [];
+            let bessPData = [];
+            let netLoadData = [];
+            
+            for (let i = 0; i < 24; i++) {
+                const hourlyMultiplier = HOURLY_SHAPES[loadKey][i];
+                const P_load = P_load_base_pu * hourlyMultiplier;
+                
+                let P_gen_solar = 0;
+                let P_gen_bess = 0;
+                
+                if (CURRENT_SCENARIO === 'Smart' && solarCapacity > 0) {
+                    P_gen_solar = solarCapacity * HOURLY_SHAPES.Solar_Output[i] * DG_CAPACITY_FACTOR;
+                }
+                
+                if (CURRENT_SCENARIO === 'Smart' && bessCapacity > 0) {
+                    // This uses the simplified BESS profile for visualization only
+                    P_gen_bess = bessCapacity * HOURLY_SHAPES.Battery_P[i]; 
+                }
+                
+                solarGenData.push(P_gen_solar);
+                bessPData.push(P_gen_bess);
+
+                // Net Load = Load - Solar Gen - BESS Discharge (or + BESS Charge)
+                const netP = P_load - P_gen_solar - P_gen_bess; 
+                netLoadData.push(netP);
+            }
+
+            // Chart Configuration
+            const ctx = document.getElementById('hourlyProfileChart');
+            if (hourlyProfileChartInstance) {
+                hourlyProfileChartInstance.destroy();
+            }
+
+            hourlyProfileChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: hourlyLabels,
+                    datasets: [
+                        {
+                            label: 'Base P Load (Demand)',
+                            data: basePLoadData,
+                            borderColor: 'rgba(59, 130, 246, 1)', // Accent Blue
+                            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                            borderWidth: 2,
+                            tension: 0.4,
+                            fill: true,
+                        },
+                        {
+                            label: 'Solar PV Gen (Source)',
+                            data: solarGenData,
+                            borderColor: 'rgba(249, 115, 22, 1)', // Secondary Orange
+                            backgroundColor: 'rgba(249, 115, 22, 0.1)',
+                            borderWidth: 2,
+                            tension: 0.4,
+                            fill: true,
+                            hidden: CURRENT_SCENARIO === 'Traditional'
+                        },
+                        {
+                            label: 'BESS P Flow (±)',
+                            data: bessPData,
+                            borderColor: 'rgba(5, 150, 105, 1)', // Primary Green
+                            backgroundColor: 'rgba(5, 150, 105, 0.1)',
+                            borderWidth: 2,
+                            tension: 0.4,
+                            fill: false,
+                            hidden: CURRENT_SCENARIO === 'Traditional'
+                        },
+                        {
+                            label: 'Net Load (System Draw)',
+                            data: netLoadData,
+                            borderColor: 'rgba(31, 41, 55, 1)', // Text Dark
+                            backgroundColor: 'rgba(31, 41, 55, 0.05)',
+                            borderWidth: 3,
+                            tension: 0.4,
+                            fill: false,
+                        },
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                            labels: {
+                                usePointStyle: true
+                            }
+                        },
+                        title: {
+                            display: true,
+                            text: `Hourly Power Profile (P) for Bus ${busId}`
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    let label = context.dataset.label || '';
+                                    if (label) {
+                                        label += ': ';
+                                    }
+                                    label += context.parsed.y.toFixed(3) + ' p.u.';
+                                    return label;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Hour of Day (24 Hr Clock)'
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'Power (P p.u.)'
+                            },
+                            beginAtZero: false 
+                        }
+                    }
+                }
+            });
+        }
 
         // --- MODAL AND UI HELPERS ---
 
@@ -1623,14 +1916,20 @@
                  messageText = `<span class="text-red-600 font-bold">N-1 Contingency: Line ${trippedLine.from}-${trippedLine.to} (ID: ${trippedLine.id}) is tripped.</span> Scenario: **${CURRENT_SCENARIO} Grid**.`;
             }
 
+            const currentProfile = LOAD_PROFILES[CURRENT_LOAD_PROFILE];
+
             let tableHTML = `
                 <thead>
                     <tr class="bg-gray-200">
                         <th class="rounded-tl-lg">Bus ID</th>
                         <th>Type</th>
                         <th>Load Class</th>
+                        <th>Load Mult. ($\times$)</th> 
+                        <th>Base P Load (p.u.)</th>
+                        <th>Base Q Load (p.u.)</th>
                         <th>V Mag. (p.u.)</th>
-                        <th>P Load (p.u.)</th>
+                        <th>P Load (Final p.u.)</th>
+                        <th>Q Load (Final p.u.)</th>
                         <th>P Gen (p.u.)</th>
                         <th class="rounded-tr-lg">THD (%)</th>
                     </tr>
@@ -1641,6 +1940,12 @@
             results.forEach(res => {
                 const bus = busData.find(b => b.id === res.id);
                 if (!bus) return;
+                
+                // Calculate the multiplier applied to the base load class
+                let multiplier = 1.0;
+                if (bus.load_type === 'Industrial') multiplier = currentProfile.Ind;
+                if (bus.load_type === 'Commercial') multiplier = currentProfile.Com;
+                if (bus.load_type === 'Residential') multiplier = currentProfile.Res;
                 
                 let colorClass = (res.V < 0.93) ? 'text-red-600 font-bold' : (res.V < 0.97) ? 'text-yellow-600 font-semibold' : (res.V > 1.04) ? 'text-primary font-semibold' : 'text-code-pass';
                 const thdColorClass = bus.thd_value <= HARMONIC_LIMIT_THD ? 'text-code-pass' : 'text-code-fail font-bold';
@@ -1661,8 +1966,12 @@
                         <td class="font-bold">${bus.id}</td>
                         <td>${bus.type}</td>
                         <td>${bus.load_type}</td>
+                        <td>${multiplier.toFixed(2)}</td>
+                        <td>${bus.P_load_base.toFixed(3)}</td>
+                        <td>${bus.Q_load_base.toFixed(3)}</td>
                         <td class="${colorClass}">${res.V.toFixed(4)}</td>
                         <td>${bus.P_load.toFixed(3)}</td>
+                        <td>${bus.Q_load.toFixed(3)}</td>
                         <td>${pGenText}</td>
                         <td class="${thdColorClass}">${bus.thd_value.toFixed(2)}</td>
                     </tr>
@@ -1709,55 +2018,8 @@
              </p>`);
         }
         
-        // --- DRAGGING FUNCTIONS ---
+        // --- DRAGGING FUNCTIONS ARE NOW IN GLOBAL SCOPE ABOVE ---
 
-        function getMousePosition(evt) {
-            const svg = document.getElementById('networkSVG');
-            const CTM = svg.getScreenCTM();
-            return {
-                x: (evt.clientX - CTM.e) / CTM.a,
-                y: (evt.clientY - CTM.f) / CTM.d
-            };
-        }
-
-        function startDrag(evt) {
-            if (evt.target.tagName === 'circle') {
-                isDragging = true;
-                const busId = parseInt(evt.target.parentNode.querySelector('text').textContent.trim());
-                selectedBusId = busId;
-                
-                const currentCoords = busCoordinates.find(b => b.id === selectedBusId);
-                const mousePos = getMousePosition(evt);
-                offset = {
-                    x: mousePos.x - currentCoords.x,
-                    y: mousePos.y - currentCoords.y
-                };
-            }
-        }
-
-        function drag(evt) {
-            if (!isDragging) return;
-            evt.preventDefault();
-            
-            const newPos = getMousePosition(evt);
-            const busCoord = busCoordinates.find(b => b.id === selectedBusId);
-            
-            if (busCoord) {
-                // Apply bounds check to SVG viewBox (0, 0) to (1000, 400)
-                const newX = Math.max(20, Math.min(SVG_VIEWBOX_WIDTH - 20, newPos.x - offset.x));
-                const newY = Math.max(20, Math.min(SVG_VIEWBOX_HEIGHT - 20, newPos.y - offset.y));
-
-                busCoord.x = newX;
-                busCoord.y = newY;
-                
-                displayNetworkTopology(lfResults);
-            }
-        }
-
-        function endDrag() {
-            isDragging = false;
-            selectedBusId = null;
-        }
 
         /** Renders the network topology visualization (SVG) showing lines and colored buses. */
         function displayNetworkTopology(results = null) {
@@ -2013,7 +2275,7 @@
                         `;
                     }
                     
-                    // --- Solar and BESS Control (Applied to all non-Slack buses with capacity) ---
+                    // --- Solar and BESS Control (Applied to all non-Slack/PV buses with capacity) ---
                     if (bus.solar_capacity > 0 || bus.bess_capacity > 0) {
                         smartGridFields += `
                             <div class="space-y-1 pt-2 border-t border-gray-200">
@@ -2072,6 +2334,11 @@
             }).join('');
 
             editDiv.innerHTML = busInputs;
+
+            // Populate the new profile bus selector on initialization
+            const profileSelector = document.getElementById('profileBusSelector');
+            profileSelector.innerHTML = busData.map(b => `<option value="${b.id}">Bus ${b.id}</option>`).join('');
+            renderHourlyProfileChart(parseInt(profileSelector.value)); 
         }
 
         /** Sets the currently selected fault bus and updates the UI (SVG). */
@@ -2089,13 +2356,15 @@
                 'loadFlow': document.getElementById('loadFlowResults'),
                 'loadFlowIterative': document.getElementById('loadFlowIterativeResults'),
                 'shortCircuit': document.getElementById('shortCircuitResults'),
-                'compliance': document.getElementById('complianceResults')
+                'compliance': document.getElementById('complianceResults'),
+                'profile': document.getElementById('profileResults') // New tab
             };
             const tabs = {
                 'loadFlow': document.getElementById('tabLF'),
                 'loadFlowIterative': document.getElementById('tabLFIterative'),
                 'shortCircuit': document.getElementById('tabSC'),
-                'compliance': document.getElementById('tabCompliance')
+                'compliance': document.getElementById('tabCompliance'),
+                'profile': document.getElementById('tabProfile') // New tab
             };
 
             for (let v in views) {
@@ -2506,7 +2775,7 @@
             selectFaultBus(10);
             // 3. Draw initial empty network map
             displayNetworkTopology();
-            // 4. Update the Load Profile dropdown and set initial multipliers
+            // 4. Update the Load Profile dropdown and set initial multipliers (calls updateProfileDisplay and runs loadFlow)
             updateLoadProfile(CURRENT_LOAD_PROFILE);
             // 5. Update DG Intermittency text
             document.getElementById('dgIntermittencyValue').textContent = `${DG_CAPACITY_FACTOR * 100}%`;
