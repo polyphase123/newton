@@ -139,6 +139,25 @@
         .compliance-header-link:hover {
              color: #3b82f6; /* accent-blue */
         }
+        /* Info marker style for extensive explanations */
+        .info-marker {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background-color: #3b82f6; /* accent-blue */
+            color: white;
+            font-size: 12px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-left: 6px;
+            transition: background-color 0.2s;
+        }
+        .info-marker:hover {
+            background-color: #2563eb;
+        }
     </style>
 </head>
 <body class="p-4 sm:p-8">
@@ -155,6 +174,7 @@
             <h2 class="text-xl font-semibold text-text-dark mb-4 flex items-center">
                 <svg class="w-5 h-5 mr-2 text-primary" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"></path></svg>
                 Network Topology & Voltage Status
+                <i class="info-marker" onclick="openTechnicalModal('NETWORK_STATUS')">i</i>
             </h2>
             <div id="svgContainer" class="h-96">
                  <svg id="networkSVG" class="w-full h-full" onmousedown="startDrag(event)" onmousemove="drag(event)" onmouseup="endDrag()" onmouseleave="endDrag()"></svg>
@@ -170,7 +190,10 @@
             <div class="lg:col-span-2">
                 <div class="bg-white p-5 rounded-xl shadow-2xl border border-gray-100 h-full">
                     <div class="flex border-b border-gray-300 mb-4">
-                        <button id="configTabLines" class="flex-1 px-3 py-2 text-md font-semibold border-b-2 border-primary text-primary transition duration-300">Wire Lines Configuration (32)</button>
+                        <button id="configTabLines" class="flex-1 px-3 py-2 text-md font-semibold border-b-2 border-primary text-primary transition duration-300">
+                             Wire Lines Configuration (32)
+                             <i class="info-marker text-sm w-4 h-4 ml-1" onclick="openTechnicalModal('LINE_CONFIG_EXPLANATION')">?</i>
+                        </button>
                     </div>
 
                     <!-- Line Configuration Panel Content -->
@@ -184,7 +207,7 @@
                             <span class="text-center">From</span>
                             <span class="text-center">To</span>
                             <span>Breaker</span>
-                            <span class="cursor-pointer font-extrabold" onclick="openCodeDetails('ANSI_CODE_EXPLANATION')">ANSI Relay</span>
+                            <span class="cursor-pointer font-extrabold" onclick="openTechnicalModal('ANSI_CODE_EXPLANATION')">ANSI Relay</span>
                             <span class="text-center">Active</span>
                         </div>
         
@@ -201,6 +224,7 @@
                      <h3 class="text-xl font-semibold text-text-dark mb-4 border-b border-gray-300 pb-2 flex items-center">
                         <svg class="w-5 h-5 mr-2 text-primary" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M11 17h2v-6h-2v6zm5-14H8v2h8V3zM4 10h16v2H4v-2zm0 4h16v2H4v-2z"></path></svg>
                         Global Grid Controls
+                        <i class="info-marker" onclick="openTechnicalModal('GLOBAL_CONTROLS')">i</i>
                     </h3>
 
                     <!-- Project Scenario Toggle -->
@@ -272,6 +296,7 @@
                 <h2 class="text-xl font-semibold text-text-dark mb-4 border-b border-gray-300 pb-2 flex items-center">
                     <svg class="w-5 h-5 mr-2 text-accent-blue" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"></path></svg>
                     Bus Parameters & Smart Grid Controls
+                    <i class="info-marker" onclick="openTechnicalModal('BUS_CONTROLS')">i</i>
                 </h2>
                 <div class="flex space-x-4 mb-4">
                      <button onclick="addBus()" class="flex-1 py-2 px-4 bg-green-500 text-white font-bold rounded-lg hover:bg-green-600 transition duration-150">
@@ -291,6 +316,7 @@
                 <h2 class="text-xl font-semibold text-text-dark mb-4 border-b border-gray-300 pb-2 flex items-center">
                     <svg class="w-5 h-5 mr-2 text-secondary" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
                     Short Circuit & Fault Analysis Controls
+                     <i class="info-marker" onclick="openTechnicalModal('SHORT_CIRCUIT_CONTROLS')">i</i>
                 </h2>
                 <div class="space-y-2">
                     <!-- FIX: Re-inserting the missing loadFlowMethod select dropdown -->
@@ -329,22 +355,27 @@
                 <button id="tabLF" onclick="showResults('loadFlow')" class="flex-shrink-0 px-4 py-2 text-lg font-semibold border-b-2 border-primary text-primary transition duration-300 flex items-center tab-button">
                     <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"></path></svg>
                     Summary Load Flow
+                    <i class="info-marker text-xs w-4 h-4 ml-1" onclick="openTechnicalModal('LF_SUMMARY_EXPLANATION')">?</i>
                 </button>
                 <button id="tabLFIterative" onclick="showResults('loadFlowIterative')" class="flex-shrink-0 px-4 py-2 text-lg font-semibold text-gray-500 hover:text-text-dark transition duration-300 flex items-center tab-button">
                     <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 10c-3.87 0-7 3.13-7 7h2c0-2.76 2.24-5 5-5s5 2.24 5 5h2c0-3.87-3.13-7-7-7zM12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"></path></svg>
                     Iterative Data
+                    <i class="info-marker text-xs w-4 h-4 ml-1" onclick="openTechnicalModal('ITERATIVE_DATA_EXPLANATION')">?</i>
                 </button>
                 <button id="tabSC" onclick="showResults('shortCircuit')" class="flex-shrink-0 px-4 py-2 text-lg font-semibold text-gray-500 hover:text-text-dark transition duration-300 flex items-center tab-button">
                     <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
                     Short Circuit
+                    <i class="info-marker text-xs w-4 h-4 ml-1" onclick="openTechnicalModal('SC_RESULTS_EXPLANATION')">?</i>
                 </button>
                  <button id="tabCompliance" onclick="showResults('compliance')" class="flex-shrink-0 px-4 py-2 text-lg font-semibold text-gray-500 hover:text-text-dark transition duration-300 flex items-center tab-button">
                     <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 2L4 5v6.09c0 5.05 3.41 9.76 8 10.91 4.59-1.15 8-5.86 8-10.91V5l-8-3zm-1 14l-4-4 1.41-1.41L11 13.17l5.59-5.59L18 9l-7 7z"></path></svg>
                     Code Compliance
+                    <i class="info-marker text-xs w-4 h-4 ml-1" onclick="openTechnicalModal('COMPLIANCE_EXPLANATION')">?</i>
                 </button>
                 <button id="tabProfile" onclick="showResults('profile')" class="flex-shrink-0 px-4 py-2 text-lg font-semibold text-gray-500 hover:text-text-dark transition duration-300 flex items-center tab-button">
                     <svg class="w-5 h-5 mr-2" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-4h2v4zm4 0h-2V7h2v10zm4 0h-2v-7h2v7z"></path></svg>
                     24 Hr Profile
+                    <i class="info-marker text-xs w-4 h-4 ml-1" onclick="openTechnicalModal('HOURLY_PROFILE_EXPLANATION')">?</i>
                 </button>
             </div>
             
@@ -360,6 +391,7 @@
                     <h3 class="text-md font-semibold text-text-dark mb-3 flex items-center">
                         <svg class="w-5 h-5 mr-1 text-secondary" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93h2c0 3.86 3.14 7 7 7V19.93z"></path></svg>
                         Current Simulated Load Profile
+                        <i class="info-marker" onclick="openTechnicalModal('LOAD_PROFILE_EXPLANATION')">i</i>
                     </h3>
                     <div class="flex flex-wrap items-start justify-between gap-4">
                         <div class="w-full sm:w-auto flex-shrink-0">
@@ -382,6 +414,7 @@
                     <h3 class="text-md font-semibold text-text-dark mb-2 flex items-center">
                          <svg class="w-4 h-4 mr-1 text-accent-blue" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-4h2v4zm4 0h-2V7h2v10zm4 0h-2v-7h2v7z"></path></svg>
                         Voltage Magnitude Profile (V p.u.)
+                        <i class="info-marker text-xs w-4 h-4 ml-1" onclick="openTechnicalModal('VOLTAGE_PROFILE_EXPLANATION')">?</i>
                     </h3>
                     <div class="chart-container">
                         <canvas id="voltageProfileChart"></canvas>
@@ -451,6 +484,7 @@
                 <h3 class="text-xl font-semibold text-text-dark mb-4 border-b border-gray-300 pb-2 flex items-center">
                     <svg class="w-5 h-5 mr-2 text-primary" fill="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-6h2v6zm0-8h-2V7h2v2z"></path></svg>
                     Bus Hourly Load & Generation Profile
+                    <i class="info-marker text-xs w-4 h-4 ml-1" onclick="openTechnicalModal('HOURLY_PROFILE_EXPLANATION')">?</i>
                 </h3>
                 <div class="flex items-center space-x-3 mb-4">
                     <label for="profileBusSelector" class="font-medium text-gray-700">Select Bus:</label>
@@ -1314,9 +1348,9 @@
                         <tr class="bg-gray-200">
                             <th>Bus ID (kV)</th>
                             <th>V Mag. (p.u.)</th>
-                            <th class="compliance-header-link" onclick="openCodeDetails('PGC_V')">PGC V Check</th>
-                            <th class="compliance-header-link" onclick="openCodeDetails('PEC_VD')">PEC V Drop</th>
-                            <th class="compliance-header-link" onclick="openCodeDetails('PGC_THD')">THD (%)</th>
+                            <th class="compliance-header-link" onclick="openTechnicalModal('PGC_V')">PGC V Check</th>
+                            <th class="compliance-header-link" onclick="openTechnicalModal('PEC_VD')">PEC V Drop</th>
+                            <th class="compliance-header-link" onclick="openTechnicalModal('PGC_THD')">THD (%)</th>
                             <th>Cap MVAR</th>
                         </tr>
                     </thead>
@@ -1336,7 +1370,7 @@
                 let kvColorClass = `text-kv-${bus.kv_level.toString().replace('.', '')}`;
 
                 complianceTableHTML += `
-                    <tr class="hover:bg-gray-50 cursor-pointer" onclick="openCodeDetails('BUS_SUMMARY', ${bus.id})">
+                    <tr class="hover:bg-gray-50 cursor-pointer" onclick="openTechnicalModal('BUS_SUMMARY', ${bus.id})">
                         <td class="font-bold">Bus ${bus.id} <span class="${kvColorClass}">(${bus.kv_level}kV)</span></td>
                         <td>${res.V.toFixed(4)}</td>
                         <td class="${isPGC_V_OK ? 'text-code-pass' : 'text-code-fail font-bold'}">
@@ -1371,8 +1405,8 @@
                             <th>Breaker Model</th>
                             <th>ANSI Relay</th>
                             <th>Current (A)</th>
-                            <th class="compliance-header-link" onclick="openCodeDetails('PEC_AMP')">Ampacity Check</th>
-                            <th class="compliance-header-link" onclick="openCodeDetails('PEC_SC')">SCA Rating Check</th>
+                            <th class="compliance-header-link" onclick="openTechnicalModal('PEC_AMP')">Ampacity Check</th>
+                            <th class="compliance-header-link" onclick="openTechnicalModal('PEC_SC')">SCA Rating Check</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -1836,15 +1870,159 @@
         /**
          * Opens the modal popup with technical explanations based on the type.
          */
-        function openCodeDetails(type, busId = null) {
+        function openTechnicalModal(type, busId = null) {
             const modal = document.getElementById('technicalModal');
             const title = document.getElementById('modalTitle');
             const body = document.getElementById('modalBody');
             
-            let modalTitle = 'Code Provision Details';
+            let modalTitle = 'Technical Details';
             let modalContent = '';
 
             switch (type) {
+                case 'LINE_CONFIG_EXPLANATION':
+                    modalTitle = 'Wire Lines Configuration Details';
+                    modalContent = `
+                        <p>This panel controls the physical and protective characteristics of each line section between buses.</p>
+                        <ul class="list-disc list-inside space-y-2">
+                            <li><strong class="text-text-dark">Wire Type:</strong> Sets the conductor properties (resistance, reactance, and maximum **Ampacity** in Amperes) based on ACSR standards. Changing this affects impedance (R/X) and compliance checks.</li>
+                            <li><strong class="text-text-dark">R (p.u.) / X (p.u.):</strong> Per-Unit Resistance and Reactance derived from the wire type and system base MVA. You can override these values directly for custom simulation.</li>
+                            <li><strong class="text-text-dark">Breaker:</strong> Specifies the model and Interrupting Rating (kA). This rating is crucial for the Short Circuit Analysis (SCA) compliance check.</li>
+                            <li><strong class="text-text-dark">ANSI Relay:</strong> Sets the primary protection function (e.g., Overcurrent, Reclosing).</li>
+                            <li><strong class="text-primary">Active:</strong> Toggles the line in or out of service for load flow calculation (e. A switch opening).</li>
+                        </ul>
+                    `;
+                    break;
+                case 'NETWORK_STATUS':
+                    modalTitle = 'Network Map & Status Explanation';
+                    modalContent = `
+                        <p>This network map provides a dynamic, visual representation of the transmission and distribution system.</p>
+                        <ul class="list-disc list-inside space-y-2">
+                            <li><strong class="text-text-dark">Node Colors (Fill):</strong> Indicate the primary load type connected to the bus (Green: Industrial, Orange: Commercial, Blue: Residential).</li>
+                            <li><strong class="text-text-dark">Node Rings (Outline):</strong> Indicate the voltage level (Orange: 69kV, Blue: 34.5kV, Green: 13.8kV).</li>
+                            <li><strong class="text-text-dark">Small Status Dot (Top Right):</strong> Shows the current voltage health:
+                                <ul class="list-disc list-inside ml-4">
+                                    <li class="text-bus-good">Green: Healthy Voltage (V > 0.97 p.u.)</li>
+                                    <li class="text-bus-low">Yellow: Low Voltage Warning (0.93 p.u. < V < 0.97 p.u.)</li>
+                                    <li class="text-bus-crit">Red: Critical Voltage (V < 0.93 p.u.)</li>
+                                </ul>
+                            </li>
+                            <li><strong class="text-text-dark">Line Status:</strong> Solid lines are active. Grey/Dashed lines are inactive or tripped (N-1 scenario).</li>
+                            <li><strong class="text-text-dark">Action:</strong> Click and drag nodes to rearrange the visual layout. Click any node to set the **Fault Bus** for Short Circuit Analysis.</li>
+                        </ul>
+                    `;
+                    break;
+
+                case 'GLOBAL_CONTROLS':
+                    modalTitle = 'Global Controls & Simulation Features';
+                    modalContent = `
+                        <p>These controls set the macro environment for the load flow simulation:</p>
+                        <ul class="list-disc list-inside space-y-2">
+                            <li><strong class="text-primary">Simulation Scenario:</strong> Toggles how Distributed Energy Resources (DERs) behave:
+                                <ul class="list-disc list-inside ml-4">
+                                    <li>**Traditional:** Solar PV and BESS are ignored (Pgen=0), relying entirely on centralized generation.</li>
+                                    <li>**Smart Grid:** Solar PV and BESS follow hourly profiles (Charge/Discharge) and actively contribute power.</li>
+                                </ul>
+                            </li>
+                            <li><strong class="text-secondary">Load Profile Multipliers:</strong> Scale the base power (P/Q) demand for each load class based on time of day (selected in Load Flow tab).</li>
+                            <li><strong class="text-accent-blue">DG Capacity Factor:</strong> Simulates **Distributed Generation (DG) Intermittency**. A value less than 100% reduces the power output of all DGs and Solar PV assets.</li>
+                            <li><strong class="text-secondary">N-1 Contingency:</strong> Triggers a simulation where one random line is automatically tripped (disabled) to test system resilience against a single element failure.</li>
+                        </ul>
+                    `;
+                    break;
+
+                case 'BUS_CONTROLS':
+                    modalTitle = 'Bus Parameters & Smart Grid Controls';
+                    modalContent = `
+                        <p>Control the electrical characteristics and smart capabilities of each substation bus:</p>
+                        <ul class="list-disc list-inside space-y-2">
+                            <li><strong class="text-text-dark">P/Q Load (Base):</strong> The nominal base power demand (Active/Reactive) in Per-Unit (p.u.).</li>
+                            <li><strong class="text-accent-blue">DG Control (Distributed Generation):</strong> Allows enabling/disabling DGs and setting their **Q Control Mode** (Unity PF, Boost V [+Q], or Absorb Q [-Q]).</li>
+                            <li><strong class="text-orange-600">Solar PV & BESS Capacity:</strong> Sets the maximum generation/storage capacity (in p.u.) for Smart Grid operation.</li>
+                            <li><strong class="text-green-600">Capacitor Bank (MVAR):</strong> Inject reactive power (MVAR) to manually correct low voltage or power factor issues.</li>
+                            <li><strong class="text-accent-blue">Demand Response (DR):</strong> Sets the maximum load reduction (in p.u.) that can be utilized during peak hours or system stress events.</li>
+                        </ul>
+                    `;
+                    break;
+                
+                case 'SHORT_CIRCUIT_CONTROLS':
+                    modalTitle = 'Short Circuit Analysis Controls';
+                    modalContent = `
+                        <p>This panel prepares the system for fault analysis:</p>
+                        <ul class="list-disc list-inside space-y-2">
+                            <li><strong class="text-primary">Load Flow Method:</strong> Selects the solution technique for the preceding Load Flow (Newton-Raphson or Gauss-Seidel).</li>
+                            <li><strong class="text-secondary">Fault Type:</strong> Selects the type of fault to simulate (e.g., L-L-L for symmetrical three-phase fault, or L-G for single-line-to-ground).</li>
+                            <li><strong class="text-secondary">Fault Bus:</strong> The bus node where the fault occurs. (Can be set by clicking on the map nodes).</li>
+                            <li><strong class="text-text-dark">Fault Impedance ($Z_f$ p.u.):</strong> Simulates a non-bolted fault by adding impedance (Zf) at the fault location. A value of 0.00 simulates a bolted fault.</li>
+                        </ul>
+                        <p class="mt-3">Short Circuit calculations use symmetrical components (Z1, Z2, Z0) based on approximate system impedance derived from line parameters.</p>
+                    `;
+                    break;
+
+                case 'SC_RESULTS_EXPLANATION':
+                    modalTitle = 'Short Circuit Results Explanation';
+                    modalContent = `
+                        <p>The Short Circuit (SC) results calculate the maximum fault current and fault MVA available at the selected fault bus, which is crucial for equipment sizing and protection coordination.</p>
+                        <ul class="list-disc list-inside space-y-2">
+                            <li><strong class="text-secondary">Fault Current (Amperes):</strong> The calculated maximum current flowing during the fault condition. This value directly informs the required **Interrupting Current Rating** of the circuit breaker on that bus (checked in the Compliance Tab).</li>
+                            <li><strong class="text-secondary">Short Circuit MVA (MVA<sub>sc</sub>):</strong> The apparent power of the fault, used for high-level system analysis.</li>
+                            <li><strong class="text-text-dark">Fault Type:</strong> Determines which symmetrical components (Z1, Z2, Z0) are used in the calculation, leading to different fault current levels (L-L-L is usually the highest).</li>
+                        </ul>
+                    `;
+                    break;
+                
+                case 'LF_SUMMARY_EXPLANATION':
+                    modalTitle = 'Load Flow Summary Explanation';
+                    modalContent = `
+                        <p>The Load Flow Summary displays the final computed operational state of each bus after the simulation converges.</p>
+                        <ul class="list-disc list-inside space-y-2">
+                            <li><strong class="text-text-dark">V Mag. (p.u.):</strong> The resulting voltage magnitude in Per-Unit. This is the primary metric checked against the PGC minimum voltage compliance.</li>
+                            <li><strong class="text-text-dark">Load Multiplier:</strong> The scale factor currently applied to the base P/Q loads (determined by the global Load Profile and the bus's load class).</li>
+                            <li><strong class="text-text-dark">P/Q Load (Final p.u.):</strong> The actual active and reactive load consuming power at the bus after multipliers and Demand Response (DR) reductions are applied.</li>
+                            <li><strong class="text-primary">P Gen (p.u.):</strong> The total net active power injected by all local generation (DG, Solar PV, BESS discharge). Click the '?' in the table header for a detailed breakdown.</li>
+                            <li><strong class="text-text-dark">THD (%):</strong> Simulated Total Harmonic Distortion. This is checked against the PGC Harmonic Limits.</li>
+                        </ul>
+                    `;
+                    break;
+                
+                case 'ITERATIVE_DATA_EXPLANATION':
+                    modalTitle = 'Iterative Data Explanation';
+                    modalContent = `
+                        <p>This tab displays the step-by-step convergence of the Load Flow calculation, showing how voltage magnitude (V) and angle ($\delta$) stabilize over successive iterations.</p>
+                        <ul class="list-disc list-inside space-y-2">
+                            <li><strong class="text-text-dark">Iter (k):</strong> The current iteration count (starting at 0 for initial guess).</li>
+                            <li><strong class="text-text-dark">Mag (p.u.) / Value (Deg):</strong> The calculated voltage magnitude and angle at that iteration.</li>
+                            <li><strong class="text-red-500">Delta ($\Delta$V / $\Delta\delta$):</strong> The change in value from the previous iteration. The Load Flow is considered "converged" when these delta values fall below a defined tolerance (e.g., 0.0001 p.u.).</li>
+                        </ul>
+                        <p class="mt-3">**Newton-Raphson (NR)** uses a Jacobian matrix for faster, quadratic convergence, typically requiring fewer steps than the simpler, linear **Gauss-Seidel (GS)** method.</p>
+                    `;
+                    break;
+
+                case 'COMPLIANCE_EXPLANATION':
+                    modalTitle = 'Code Compliance Explanation';
+                    modalContent = `
+                        <p>This tab evaluates the simulation results against simplified standards from the Philippine Grid Code (PGC) and Philippine Electrical Code (PEC).</p>
+                        <ul class="list-disc list-inside space-y-2">
+                            <li><strong class="text-accent-blue">Bus Compliance:</strong> Checks Voltage Magnitude (PGC: Min 0.95 p.u.), Voltage Drop (PEC: Max 3.0%), and Total Harmonic Distortion (PGC: Max 5.0% THD).</li>
+                            <li><strong class="text-secondary">Line Compliance (Sizing & Protection):</strong> Checks **Ampacity** (PEC: Conductor safe thermal limit) and **SCA Rating Check** (PEC: Circuit breaker interrupting capability against nominal fault MVA).</li>
+                            <li><strong class="text-red-600">FAIL Status:</strong> Indicates a parameter exceeds the safe or mandated code limit. The **Optimize Violations** button attempts to correct these issues using smart grid controls and equipment upgrades.</li>
+                        </ul>
+                    `;
+                    break;
+                
+                case 'HOURLY_PROFILE_EXPLANATION':
+                    modalTitle = '24-Hour Profile Explanation';
+                    modalContent = `
+                        <p>This chart visualizes the expected 24-hour power flow dynamics (P in p.u.) for the selected bus, allowing you to observe the impact of load shape and DER operation.</p>
+                        <ul class="list-disc list-inside space-y-2">
+                            <li><strong class="text-accent-blue">Base P Load (Demand):</strong> The load profile shape multiplied by the base P load of the bus.</li>
+                            <li><strong class="text-secondary">Solar PV Gen:</strong> The generation output, peaking at midday (only visible in **Smart Grid** scenario).</li>
+                            <li><strong class="text-primary">BESS P Flow:</strong> Battery charge (negative values) or discharge (positive values), following a preset optimization strategy (only visible in **Smart Grid** scenario).</li>
+                            <li><strong class="text-text-dark">Net Load (System Draw):</strong> The difference between load and local generation (P Load - P Solar - P BESS). This represents the power the system must supply externally.</li>
+                        </ul>
+                    `;
+                    break;
+
+                // Existing Code Compliance Detail Cases (Keep for thoroughness)
                 case 'PGC_V':
                     modalTitle = 'PGC Voltage Compliance (0.95 p.u.)';
                     modalContent = `<p class="font-bold text-lg text-red-600">Violation Reference: PGC Section 6.3.1.2 (Voltage Tolerance)</p>
@@ -1950,7 +2128,11 @@
                         <th>V Mag. (p.u.)</th>
                         <th>P Load (Final p.u.)</th>
                         <th>Q Load (Final p.u.)</th>
-                        <th>P Gen (p.u.)</th>
+                        <!-- ENHANCED P GEN HEADER WITH INFO MARKER -->
+                        <th>
+                            P Gen (p.u.)
+                            <i class="info-marker text-xs w-4 h-4 ml-1" onclick="openTechnicalModal('LOAD_FLOW_P_GEN')">?</i>
+                        </th>
                         <th class="rounded-tr-lg">THD (%)</th>
                     </tr>
                 </thead>
@@ -1977,7 +2159,10 @@
                     const profile = LOAD_PROFILES[CURRENT_LOAD_PROFILE];
                     const solar = (bus.solar_capacity * profile.Solar_Output * DG_CAPACITY_FACTOR).toFixed(3);
                     const bess = (bus.bess_capacity * profile.Battery_P).toFixed(3);
-                    pGenText = `${bus.P_gen.toFixed(3)} (S:${solar}, B:${bess})`;
+                    // Show total PGen, and solar/bess contribution on hover
+                    const hoverTitle = `Total: ${bus.P_gen.toFixed(3)} p.u.\nSolar: ${solar} p.u.\nBESS: ${bess} p.u. (Positive = Discharge)`;
+
+                    pGenText = `<span title="${hoverTitle}">${bus.P_gen.toFixed(3)} <span class="text-xs text-gray-500">(S+B)</span></span>`;
                 } else if (bus.DG_status === 'On') {
                     pGenText += ' (DG ON)';
                 }
@@ -2026,7 +2211,7 @@
             scBody.innerHTML = `
                 <tr><td>Faulted Bus ID</td><td>${results.busId}</td></tr>
                 <tr><td>Fault Type</td><td>${faultNames[results.faultType]}</td></tr>
-                <tr><td>Fault Impedance ($Z_f$)</td><td>${results.Z_fault} p.u.</td></tr>
+                <tr><td>Fault Impedance ($Z_f$)<i class="info-marker text-xs w-4 h-4 ml-1" title="Zero sequence impedance adds complexity. Zf is fault impedance (Zf=Rf + jXf)">?</i></td><td>${results.Z_fault} p.u.</td></tr>
                 <tr><td>Pre-Fault Voltage (V<sub class="text-xs">f</sub>)</td><td>${lfResults ? lfResults.find(r => r.id === results.busId)?.V.toFixed(4) : 'N/A'} p.u.</td></tr>
                 
                 <tr class="bg-gray-100"><td colspan="2" class="font-bold text-center">Fault Results</td></tr>
@@ -2138,7 +2323,7 @@
             const sortedACSRTypes = ACSR_TYPES.map(type => ({
                 code: type.code,
                 displayName: `${type.name} - ${type.ampacity}A` 
-            })).sort((a, b) => a.displayName.localeCompare(b.displayName));
+            })).sort((a, b) => a.ampacity - b.ampacity);
             
             const getBreakerSelect = (line) => `
                  <select class="line-select" onchange="updateSystemParameter(${line.id}, 'breakerModel', this.value)">
