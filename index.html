@@ -22,6 +22,7 @@
                         'bus-good': '#10b981',
                         'bus-low': '#fbbf24',
                         'bus-crit': '#ef4444',
+                        'bus-high': '#3b82f6', /* Blue for High Voltage */
                         'bus-fault': '#dc2626',
                         'bus-default': '#6b7280', 
                         'code-pass': '#10b981',
@@ -586,6 +587,7 @@
 
         // PEC/PGC (Simplified) Constants for Compliance Checks
         const MAX_VOLTAGE_DROP_PERCENT = 3.0;
+        const VOLTAGE_LIMIT_MAX = 1.05; // Added upper limit for overvoltage
         const VOLTAGE_LIMIT_MIN = 0.95; 
         const BREAKER_SAFETY_MARGIN = 1.25; 
         const HARMONIC_LIMIT_THD = 5.0; 
@@ -695,20 +697,28 @@
         function startDrag(evt) {
             if (evt.target.tagName === 'circle') {
                 isDragging = true;
-                const busId = parseInt(evt.target.parentNode.querySelector('text').textContent.trim());
-                selectedBusId = busId;
-                
-                const currentCoords = busCoordinates.find(b => b.id === selectedBusId);
-                const mousePos = getMousePosition(evt);
-                offset = {
-                    x: mousePos.x - currentCoords.x,
-                    y: mousePos.y - currentCoords.y // Corrected offset calculation
-                };
+                // Use the parent <g> element to find the ID and prevent dragging the text elements
+                const gElement = evt.target.closest('g'); 
+                if (gElement) {
+                    const busId = parseInt(gElement.getAttribute('id').replace('bus-', ''));
+                    selectedBusId = busId;
+                    
+                    const currentCoords = busCoordinates.find(b => b.id === selectedBusId);
+                    const mousePos = getMousePosition(evt);
+                    offset = {
+                        x: mousePos.x - currentCoords.x,
+                        y: mousePos.y - currentCoords.y 
+                    };
+                } else {
+                    isDragging = false;
+                }
+            } else if (evt.target.tagName === 'svg') {
+                // Allows background drag/pan if implemented, but currently disabled as coordinates are fixed.
             }
         }
 
         function drag(evt) {
-            if (!isDragging) return;
+            if (!isDragging || !selectedBusId) return;
             evt.preventDefault();
             
             const newPos = getMousePosition(evt);
@@ -1361,7 +1371,7 @@
                 const bus = busData.find(b => b.id === res.id);
                 if (!bus) return;
 
-                const isPGC_V_OK = res.V >= VOLTAGE_LIMIT_MIN; 
+                const isPGC_V_OK = res.V >= VOLTAGE_LIMIT_MIN && res.V <= VOLTAGE_LIMIT_MAX; 
                 const isPEC_VD_OK = bus.voltage_drop_percent <= MAX_VOLTAGE_DROP_PERCENT;
                 const isPGC_THD_OK = bus.thd_value <= HARMONIC_LIMIT_THD;
                 
@@ -1901,8 +1911,9 @@
                             <li><strong class="text-text-dark">Node Rings (Outline):</strong> Indicate the voltage level (Orange: 69kV, Blue: 34.5kV, Green: 13.8kV).</li>
                             <li><strong class="text-text-dark">Small Status Dot (Top Right):</strong> Shows the current voltage health:
                                 <ul class="list-disc list-inside ml-4">
-                                    <li class="text-bus-good">Green: Healthy Voltage (V > 0.97 p.u.)</li>
-                                    <li class="text-bus-low">Yellow: Low Voltage Warning (0.93 p.u. < V < 0.97 p.u.)</li>
+                                    <li class="text-bus-good">Green: Healthy Voltage (${VOLTAGE_LIMIT_MIN} p.u. < V < ${VOLTAGE_LIMIT_MAX} p.u.)</li>
+                                    <li class="text-bus-high">Blue: Over Voltage (V > ${VOLTAGE_LIMIT_MAX} p.u.)</li>
+                                    <li class="text-bus-low">Yellow: Low Voltage Warning (0.93 p.u. < V < ${VOLTAGE_LIMIT_MIN} p.u.)</li>
                                     <li class="text-bus-crit">Red: Critical Voltage (V < 0.93 p.u.)</li>
                                 </ul>
                             </li>
@@ -1939,7 +1950,7 @@
                             <li><strong class="text-accent-blue">DG Control (Distributed Generation):</strong> Allows enabling/disabling DGs and setting their **Q Control Mode** (Unity PF, Boost V [+Q], or Absorb Q [-Q]).</li>
                             <li><strong class="text-orange-600">Solar PV & BESS Capacity:</strong> Sets the maximum generation/storage capacity (in p.u.) for Smart Grid operation.</li>
                             <li><strong class="text-green-600">Capacitor Bank (MVAR):</strong> Inject reactive power (MVAR) to manually correct low voltage or power factor issues.</li>
-                            <li><strong class="text-accent-blue">Demand Response (DR):</strong> Sets the maximum load reduction (in p.u.) that can be utilized during peak hours or system stress events.</li>
+                            <li><strong class="text-accent-blue">Demand Response (DR):** Sets the maximum load reduction (in p.u.) that can be utilized during peak hours or system stress events.</li>
                         </ul>
                     `;
                     break;
@@ -2002,7 +2013,7 @@
                     modalContent = `
                         <p>This tab evaluates the simulation results against simplified standards from the Philippine Grid Code (PGC) and Philippine Electrical Code (PEC).</p>
                         <ul class="list-disc list-inside space-y-2">
-                            <li><strong class="text-accent-blue">Bus Compliance:</strong> Checks Voltage Magnitude (PGC: Min 0.95 p.u.), Voltage Drop (PEC: Max 3.0%), and Total Harmonic Distortion (PGC: Max 5.0% THD).</li>
+                            <li><strong class="text-accent-blue">Bus Compliance:</strong> Checks Voltage Magnitude (PGC: Min 0.95 p.u., Max 1.05 p.u.), Voltage Drop (PEC: Max 3.0%), and Total Harmonic Distortion (PGC: Max 5.0% THD).</li>
                             <li><strong class="text-secondary">Line Compliance (Sizing & Protection):</strong> Checks **Ampacity** (PEC: Conductor safe thermal limit) and **SCA Rating Check** (PEC: Circuit breaker interrupting capability against nominal fault MVA).</li>
                             <li><strong class="text-red-600">FAIL Status:</strong> Indicates a parameter exceeds the safe or mandated code limit. The **Optimize Violations** button attempts to correct these issues using smart grid controls and equipment upgrades.</li>
                         </ul>
@@ -2024,9 +2035,9 @@
 
                 // Existing Code Compliance Detail Cases (Keep for thoroughness)
                 case 'PGC_V':
-                    modalTitle = 'PGC Voltage Compliance (0.95 p.u.)';
+                    modalTitle = 'PGC Voltage Compliance (0.95 p.u. to 1.05 p.u.)';
                     modalContent = `<p class="font-bold text-lg text-red-600">Violation Reference: PGC Section 6.3.1.2 (Voltage Tolerance)</p>
-                                    <p>The Philippine Grid Code requires voltage levels to be maintained within specified limits to ensure quality service. Minimum transient voltage stability limit is often considered $\mathbf{0.95}$ p.u. If the voltage falls below this level, it indicates a significant contingency or excessive network impedance.</p>`;
+                                    <p>The Philippine Grid Code requires voltage levels to be maintained between $\mathbf{0.95}$ p.u. (minimum) and $\mathbf{1.05}$ p.u. (maximum). Violations in either direction indicate system instability or poor control.</p>`;
                     break;
                 case 'PEC_VD':
                     modalTitle = 'PEC Voltage Drop Compliance (<3%)';
@@ -2065,7 +2076,7 @@
                     
                     let smartGridInfo = '';
                     if (bus.solar_capacity > 0 || bus.bess_capacity > 0) {
-                        smartGridInfo = `<p class="mt-2 font-bold text-primary">Smart Grid Components (Bus ${busId}):</p>
+                        smartGridInfo = `<p class="mt-2 font-bold text-primary">Smart Grid Components (Bus ${bus.id}):</p>
                                          <ul class="list-disc list-inside space-y-1 ml-4 text-xs">
                                              <li>Solar PV Cap: ${bus.solar_capacity.toFixed(2)} p.u.</li>
                                              <li>BESS Cap: ${bus.bess_capacity.toFixed(2)} p.u.</li>
@@ -2079,7 +2090,7 @@
                                     ${smartGridInfo}
                                     <p class="mt-3 font-bold">Key Code Metrics:</p>
                                     <ul class="list-disc list-inside space-y-1">
-                                        <li>Voltage Magnitude (PGC): <span class="${bus.V_result >= VOLTAGE_LIMIT_MIN ? 'text-code-pass' : 'text-code-fail'}">${bus.V_result.toFixed(4)} p.u.</span></li>
+                                        <li>Voltage Magnitude (PGC): <span class="${bus.V_result >= VOLTAGE_LIMIT_MIN && bus.V_result <= VOLTAGE_LIMIT_MAX ? 'text-code-pass' : 'text-code-fail'}">${bus.V_result.toFixed(4)} p.u.</span></li>
                                         <li>Voltage Drop (PEC): <span class="${bus.voltage_drop_percent <= MAX_VOLTAGE_DROP_PERCENT ? 'text-code-pass' : 'text-code-fail'}">${bus.voltage_drop_percent.toFixed(2)}%</span></li>
                                     </ul>`;
                     break;
@@ -2149,7 +2160,7 @@
                 if (bus.load_type === 'Commercial') multiplier = currentProfile.Com;
                 if (bus.load_type === 'Residential') multiplier = currentProfile.Res;
                 
-                let colorClass = (res.V < 0.93) ? 'text-red-600 font-bold' : (res.V < 0.97) ? 'text-yellow-600 font-semibold' : (res.V > 1.04) ? 'text-primary font-semibold' : 'text-code-pass';
+                let colorClass = (res.V < 0.93) ? 'text-red-600 font-bold' : (res.V < 0.97 || res.V > 1.05) ? 'text-yellow-600 font-semibold' : (res.V > 1.04) ? 'text-primary font-semibold' : 'text-code-pass';
                 const thdColorClass = bus.thd_value <= HARMONIC_LIMIT_THD ? 'text-code-pass' : 'text-code-fail font-bold';
                 
                 let pGenText = bus.P_gen.toFixed(3);
@@ -2267,15 +2278,26 @@
                 if (!busObj) return;
 
                 let V_text = busObj.V_result.toFixed(3) || '1.000';
+                let statusText = '';
                 
                 // Color based on Voltage Status (Overlay Color)
                 let voltColor = 'var(--tw-colors-bus-default)'; 
                 if (results) {
                     const res = results.find(r => r.id === bus.id);
                     if (res) {
-                        if (res.V < 0.93) voltColor = 'var(--tw-colors-bus-crit)'; 
-                        else if (res.V < 0.97) voltColor = 'var(--tw-colors-bus-low)'; 
-                        else voltColor = 'var(--tw-colors-bus-good)'; 
+                        if (res.V > VOLTAGE_LIMIT_MAX) { 
+                            voltColor = 'var(--tw-colors-bus-high)'; // Blue
+                            statusText = 'HIGH';
+                        } else if (res.V < 0.93) { 
+                            voltColor = 'var(--tw-colors-bus-crit)'; // Red
+                            statusText = 'CRIT';
+                        } else if (res.V < VOLTAGE_LIMIT_MIN) { 
+                            voltColor = 'var(--tw-colors-bus-low)'; // Yellow
+                            statusText = 'LOW';
+                        } else { 
+                            voltColor = 'var(--tw-colors-bus-good)'; // Green
+                            statusText = 'GOOD';
+                        } 
                     }
                 }
                 
@@ -2300,13 +2322,19 @@
                                 cursor="pointer" onclick="selectFaultBus(${bus.id})"
                                 title="Bus ${bus.id} (${kvLevel}kV): V=${V_text} p.u. Load Type: ${busObj.load_type}" />
                         
-                        <!-- Voltage Status Ring (Small dot outside circle) -->
-                        <circle cx="15" cy="-10" r="3" fill="${voltColor}" stroke="white" stroke-width="1"/>
+                        <!-- Voltage Status Dot (Maximized prominence: Increased radius and stroke) -->
+                        <circle cx="17" cy="-11" r="5" fill="${voltColor}" stroke="white" stroke-width="2.5"/>
+                        
+                        <!-- Text label for status (New: near status dot) -->
+                        <text x="25" y="-7" text-anchor="start" fill="${voltColor}" font-size="9px" font-weight="bold">
+                            ${statusText}
+                        </text>
 
                         <text x="0" y="3" text-anchor="middle" fill="white" font-size="10px" font-weight="bold"
                               cursor="pointer" onclick="selectFaultBus(${bus.id})">
                             ${bus.id}
                         </text>
+                        <!-- Voltage Magnitude Text (Below the node) -->
                         <text x="0" y="25" text-anchor="middle" fill="${voltColor}" font-size="10px">
                             ${V_text} p.u.
                         </text>
