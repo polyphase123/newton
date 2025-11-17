@@ -230,6 +230,15 @@
                     <!-- NEW: Hourly Load Profile Panel Content -->
                     <div id="hourlyProfilesPanel" class="config-panel hidden">
                         <h3 class="text-lg font-semibold text-text-dark mb-3">Load Shape Multipliers (24 Hours)</h3>
+                        
+                        <!-- NEW: Live Profile Chart Preview -->
+                        <div class="p-4 bg-gray-100 rounded-xl shadow-inner mb-4">
+                            <h4 class="text-md font-semibold text-text-dark mb-2">Live Load Profile Preview</h4>
+                            <div class="chart-container h-[200px]">
+                                <canvas id="liveHourlyProfileChart"></canvas>
+                            </div>
+                        </div>
+
                         <div class="flex space-x-4 mb-4">
                             <button onclick="saveHourlyProfiles()" class="flex-1 py-2 px-4 bg-primary text-white font-bold rounded-lg hover:bg-green-600 transition duration-150">
                                 Save Custom Profiles & Update Simulation
@@ -238,7 +247,7 @@
                                 Reset to Default Typical Shapes
                             </button>
                         </div>
-                        <!-- Header for 24 hours -->
+                        <!-- Header for 24 hours (FIXED CAPTION) -->
                          <div class="grid grid-cols-[1fr,repeat(24,minmax(0,1fr))] gap-1 text-center text-xs font-semibold pb-2 border-b border-gray-300 sticky top-0 bg-white z-10">
                             <span class="text-left font-bold text-gray-700">Hour (H)</span>
                             ${Array.from({length: 24}, (_, i) => `<span class="text-gray-500">H${i}</span>`).join('')}
@@ -622,6 +631,9 @@
         let CURRENT_LOAD_PROFILE = 'Morning Peak (8-10h)'; // Default profile
         let DG_CAPACITY_FACTOR = 1.0; // Feature 2: DG Intermittency (1.0 = 100%)
 
+        // New global chart instance for the live profile preview
+        let liveProfileChartInstance = null;
+
 
         // PEC/PGC (Simplified) Constants for Compliance Checks
         const MAX_VOLTAGE_DROP_PERCENT = 3.0;
@@ -812,6 +824,7 @@
             const indices = profile.time_indices;
 
             const calculateAvgMultiplier = (loadType) => {
+                // Use HOURLY_SHAPES, which holds the current multipliers (default or customized)
                 const total = indices.reduce((sum, h) => sum + HOURLY_SHAPES[loadType][h], 0);
                 return total / indices.length;
             };
@@ -908,9 +921,85 @@
             // Re-render profiles immediately if switching to that tab
             if (panel === 'hourlyProfiles') {
                 renderHourlyProfileInputs();
+                renderLiveHourlyPreview(); // Draw chart when opening panel
             }
         }
         
+        /**
+         * Renders the live chart preview using the UNSAVED CUSTOM_HOURLY_SHAPES.
+         */
+        function renderLiveHourlyPreview() {
+            const ctx = document.getElementById('liveHourlyProfileChart');
+            if (!ctx) return; 
+
+            const hourlyLabels = Array.from({length: 24}, (_, i) => `${i}`);
+            
+            // Use the UNSAVED custom profiles for the preview
+            const indData = CUSTOM_HOURLY_SHAPES.Industrial;
+            const comData = CUSTOM_HOURLY_SHAPES.Commercial;
+            const resData = CUSTOM_HOURLY_SHAPES.Residential;
+
+            if (liveProfileChartInstance) {
+                liveProfileChartInstance.destroy();
+            }
+
+            liveProfileChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: hourlyLabels,
+                    datasets: [
+                        {
+                            label: 'Industrial Multiplier',
+                            data: indData,
+                            borderColor: 'rgba(16, 185, 129, 1)', // load-ind
+                            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                            borderWidth: 2,
+                            tension: 0.4,
+                            pointRadius: 0
+                        },
+                        {
+                            label: 'Commercial Multiplier',
+                            data: comData,
+                            borderColor: 'rgba(249, 115, 22, 1)', // load-com
+                            backgroundColor: 'rgba(249, 115, 22, 0.1)',
+                            borderWidth: 2,
+                            tension: 0.4,
+                            pointRadius: 0
+                        },
+                        {
+                            label: 'Residential Multiplier',
+                            data: resData,
+                            borderColor: 'rgba(59, 130, 246, 1)', // load-res
+                            backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                            borderWidth: 2,
+                            tension: 0.4,
+                            pointRadius: 0
+                        },
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom' },
+                        title: { display: false }
+                    },
+                    scales: {
+                        x: { 
+                            title: { display: true, text: 'Hour of Day' },
+                            grid: { display: false }
+                        },
+                        y: { 
+                            title: { display: true, text: 'Multiplier (x)' }, 
+                            min: 0,
+                            max: 2.0,
+                            grid: { color: 'rgba(0, 0, 0, 0.05)' }
+                        }
+                    }
+                }
+            });
+        }
+
         // Function to render the 24-hour input grid
         function renderHourlyProfileInputs() {
             const container = document.getElementById('hourlyProfilesConfiguration');
@@ -932,7 +1021,7 @@
                     html += `
                         <input type="number" min="0" step="0.05" value="${value}" 
                             class="config-input text-center p-1 text-xs" 
-                            onchange="updateHourlyProfileInput('${typeKey}', ${h}, this.value)"
+                            oninput="updateHourlyProfileInput('${typeKey}', ${h}, this.value)"
                             title="Hour ${h}:00 Multiplier">
                     `;
                 }
@@ -948,6 +1037,7 @@
             const numValue = parseFloat(value);
             if (!isNaN(numValue) && numValue >= 0) {
                 CUSTOM_HOURLY_SHAPES[type][hour] = numValue;
+                renderLiveHourlyPreview(); // Update preview chart immediately
             }
         }
 
@@ -966,7 +1056,7 @@
             const selectedBusId = parseInt(document.getElementById('profileBusSelector').value) || 3;
             renderHourlyProfileChart(selectedBusId); 
 
-            alert("Custom hourly profiles saved and applied! Running Load Flow with new multipliers.");
+            console.log("Custom hourly profiles saved and applied! Running Load Flow with new multipliers.");
         }
 
         // Function to reset to default profiles
@@ -981,9 +1071,10 @@
             });
             
             renderHourlyProfileInputs();
+            renderLiveHourlyPreview(); // Update preview chart immediately
             updateLoadProfile(CURRENT_LOAD_PROFILE);
             
-            alert("Hourly profiles reset to default and applied! Running Load Flow.");
+            console.log("Hourly profiles reset to default and applied! Running Load Flow.");
         }
         
         /**
@@ -1910,11 +2001,13 @@
                 let P_gen_bess = 0;
                 
                 if (isSmartGrid && solarCapacity > 0) {
-                    P_gen_solar = solarCapacity * HOURLY_SHAPES.Solar_Output[i] * DG_CAPACITY_FACTOR;
+                    // Solar and BESS generation shapes are fixed to DEFAULT_HOURLY_SHAPES values.
+                    P_gen_solar = solarCapacity * DEFAULT_HOURLY_SHAPES.Solar_Output[i] * DG_CAPACITY_FACTOR;
                 }
                 
                 if (isSmartGrid && bessCapacity > 0) {
-                    P_gen_bess = bessCapacity * HOURLY_SHAPES.Battery_P[i]; 
+                    // Solar and BESS generation shapes are fixed to DEFAULT_HOURLY_SHAPES values.
+                    P_gen_bess = bessCapacity * DEFAULT_HOURLY_SHAPES.Battery_P[i]; 
                 }
                 
                 solarGenData.push(P_gen_solar);
@@ -1943,7 +2036,6 @@
                             backgroundColor: 'rgba(59, 130, 246, 0.1)',
                             borderWidth: 2,
                             tension: 0.4,
-                            fill: true,
                         },
                         {
                             label: 'Solar PV Gen (Source)',
