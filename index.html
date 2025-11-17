@@ -248,7 +248,7 @@
                             </button>
                         </div>
                         <!-- Header for 24 hours (FIXED CAPTION) -->
-                         <div class="grid grid-cols-[1fr,repeat(24,minmax(0,1fr))] gap-1 text-center text-xs font-semibold pb-2 border-b border-gray-300 sticky top-0 bg-white z-10">
+                         <div id="hourlyConfigHeader" class="grid grid-cols-[1fr,repeat(24,minmax(0,1fr))] gap-1 text-center text-xs font-semibold pb-2 border-b border-gray-300 sticky top-0 bg-white z-10">
                             <span class="text-left font-bold text-gray-700">Hour (H)</span>
                             ${Array.from({length: 24}, (_, i) => `<span class="text-gray-500">H${i}</span>`).join('')}
                         </div>
@@ -1003,6 +1003,18 @@
         // Function to render the 24-hour input grid
         function renderHourlyProfileInputs() {
             const container = document.getElementById('hourlyProfilesConfiguration');
+            
+            // Get the corrected header element
+            const header = document.getElementById('hourlyConfigHeader');
+            
+            // Ensure the header itself is correctly populated (this part of the template is correct now, but just checking)
+            if (header) {
+                 header.innerHTML = `
+                    <span class="text-left font-bold text-gray-700">Hour (H)</span>
+                    ${Array.from({length: 24}, (_, i) => `<span class="text-gray-500">H${i}</span>`).join('')}
+                `;
+            }
+            
             let html = '';
 
             const loadTypes = ['Industrial', 'Commercial', 'Residential'];
